@@ -65,7 +65,7 @@ export default function PlayPage() {
     if (scene?.initialDialog) {
       // 延遲顯示初始對話，給場景切換一點時間
       const timer = setTimeout(() => {
-        setCurrentDialog(scene.initialDialog);
+        setCurrentDialog(scene.initialDialog ?? null);
       }, 500);
       return () => clearTimeout(timer);
     }
