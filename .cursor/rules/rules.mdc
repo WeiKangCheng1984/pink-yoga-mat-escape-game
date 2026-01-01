@@ -1,0 +1,42 @@
+---
+alwaysApply: true
+---
+核心框架
+
+Next.js 14（App Router）：章節 / 場景用路由呈現（/play/[chapterId]/[sceneId]）
+TypeScript 5：用型別鎖住內容結構（Scene/Hotspot/Event/Requirement/Effect），避免劇情越改越崩
+Tailwind CSS 3：快速做沉浸式 UI（暗色、霧面、卡片、對話框）
+Lucide React：線索牆、音量、返回、提示等輕量圖示
+部署：Vercel：靜態資產 + SSR/CSR 混用、快速迭代上線
+資料與內容規範（你最關鍵的「自救法則」）
+
+【1】場景背景圖（BG）
+固定比例
+固定尺寸：720×720
+格式：PNG
+單張大小上限：≤ 250KB（超過就重壓或降畫質）
+命名：bg_ch{章}_sc{場}_v{版}
+
+【2】物件圖（道具/線索/特寫）
+尺寸：長邊 384px（需要更清楚才用 512px）
+格式：
+需要透明：PNG
+單張大小上限：≤ 80KB（特寫可放寬到 120KB）
+命名：item_{id}_v{版}.webp/png
+
+【3】UI 圖
+圖示：一律用 Lucide（SVG），不做 PNG icon
+尺寸：720×720 或更小
+大小：≤ 80KB
+
+【4】Hotspot（透明點選區）
+座標一律用比例值（0~1），不要用 px
+形狀先只用矩形 rect（真的不規則才用 poly）
+最小可點尺寸：手機至少等效 44×44px
+預設禁止重疊（不要做 priority 複雜規則）
+必做 debug：?debug=1 顯示 hotspot 框與 id（正常模式透明可點）
+
+【5】一致性規則（避免改圖就崩）
+背景改版只允許調色/光影/霧感，不允許移動可互動物件位置
+若真的要移動物件：必須同步更新 hotspots（當作新版本處理）
+
