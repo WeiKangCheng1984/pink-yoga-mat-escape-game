@@ -60,6 +60,7 @@ export interface Puzzle {
   type: 'input' | 'sequence' | 'arrangement' | 'combination';
   solution: string | string[];
   hint?: string;
+  requirements?: Requirement[];
   onSolve?: Effect[];
 }
 

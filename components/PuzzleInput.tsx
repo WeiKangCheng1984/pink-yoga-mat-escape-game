@@ -8,13 +8,22 @@ interface PuzzleInputProps {
   puzzle: Puzzle;
   onSolve: (input: string | string[]) => void;
   onClose: () => void;
+  error?: string;
+  onErrorClear?: () => void;
 }
 
-export default function PuzzleInput({ puzzle, onSolve, onClose }: PuzzleInputProps) {
+export default function PuzzleInput({ puzzle, onSolve, onClose, error: externalError, onErrorClear }: PuzzleInputProps) {
   const [input, setInput] = useState('');
-  const [error, setError] = useState('');
+  const [internalError, setInternalError] = useState('');
+  
+  // 優先使用外部錯誤，如果沒有則使用內部錯誤
+  const error = externalError || internalError;
 
   const handleSubmit = () => {
+    // 清除錯誤
+    setInternalError('');
+    if (onErrorClear) onErrorClear();
+    
     if (puzzle.type === 'input') {
       onSolve(input);
     } else if (puzzle.type === 'sequence') {
@@ -24,7 +33,7 @@ export default function PuzzleInput({ puzzle, onSolve, onClose }: PuzzleInputPro
     } else {
       onSolve(input);
     }
-    setInput('');
+    // 不自動清空輸入，讓用戶可以修改
   };
 
   return (
@@ -61,7 +70,8 @@ export default function PuzzleInput({ puzzle, onSolve, onClose }: PuzzleInputPro
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
-              setError('');
+              setInternalError('');
+              if (onErrorClear) onErrorClear();
             }}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
@@ -73,9 +83,9 @@ export default function PuzzleInput({ puzzle, onSolve, onClose }: PuzzleInputPro
             autoFocus
           />
           {error && (
-            <div className="mt-3 p-3 bg-red-950/30 border border-red-700/50 rounded-lg text-sm text-red-300 flex items-center gap-2">
-              <X size={16} />
-              {error}
+            <div className="mt-3 p-3 bg-red-950/30 border-2 border-red-700/70 rounded-lg text-sm text-red-300 flex items-center gap-2 animate-pulse z-[60] relative">
+              <X size={16} className="flex-shrink-0" />
+              <span className="font-medium">{error}</span>
             </div>
           )}
         </div>

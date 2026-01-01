@@ -8,11 +8,13 @@ import SceneView, { SceneViewRef } from '@/components/SceneView';
 import DialogBox from '@/components/DialogBox';
 import Inventory from '@/components/Inventory';
 import PuzzleInput from '@/components/PuzzleInput';
+import ArrangementPuzzle from '@/components/ArrangementPuzzle';
 import PulseClipReader from '@/components/PulseClipReader';
 import UVLightPanel from '@/components/UVLightPanel';
-import { ArrowLeft, Package, X } from 'lucide-react';
+import { ArrowLeft, Package, X, MapPin, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audioManager';
+import { scenes, chapters } from '@/data/gameData';
 
 export default function PlayPage() {
   const params = useParams();
@@ -22,35 +24,143 @@ export default function PlayPage() {
   const sceneId = params.sceneId as string;
   const debug = searchParams.get('debug') === '1';
 
-  const [engine] = useState(() => new GameEngine());
+  // 使用 useRef 保持 GameEngine 實例，避免重新掛載時重置狀態
+  const engineRef = useRef<GameEngine | null>(null);
+  if (!engineRef.current) {
+    // 嘗試從 localStorage 恢復狀態
+    let savedState = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('gameState');
+        if (saved) {
+          savedState = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn('無法從 localStorage 恢復遊戲狀態:', e);
+      }
+    }
+    engineRef.current = new GameEngine(savedState || undefined);
+  }
+  const engine = engineRef.current;
+
+  // 定義所有 state，確保在 useEffect 之前
   const [currentDialog, setCurrentDialog] = useState<Dialog | null>(null);
   const [currentPuzzle, setCurrentPuzzle] = useState<any>(null);
+  const [puzzleError, setPuzzleError] = useState<string>('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [showInventory, setShowInventory] = useState(false);
   const [showPulseClip, setShowPulseClip] = useState(false);
   const [showUVLight, setShowUVLight] = useState(false);
   const [interactionCount, setInteractionCount] = useState(0);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [showSceneSelector, setShowSceneSelector] = useState(false);
+  const [showDoor702Confirm, setShowDoor702Confirm] = useState(false);
+  const [showDoor701Confirm, setShowDoor701Confirm] = useState(false);
   const sceneViewRef = useRef<SceneViewRef>(null);
 
-  // 監聽場景變化並導航（作為備用機制）
+  // 根據 URL 初始化狀態（如果狀態與 URL 不一致）
   useEffect(() => {
+    if (!engineRef.current) return;
+    const engine = engineRef.current;
     const state = engine.getState();
-    if (state.currentChapter !== chapterId || state.currentScene !== sceneId) {
-      // 延遲一點確保所有效果都已應用
-      const timer = setTimeout(() => {
-        router.push(`/play/${state.currentChapter}/${state.currentScene}`);
-      }, 100);
-      return () => clearTimeout(timer);
+    
+    // 確保當前場景被添加到 visitedScenes
+    if (!state.visitedScenes.includes(sceneId)) {
+      engine.applyEffect({
+        type: 'changeScene',
+        chapterId: chapterId,
+        sceneId: sceneId,
+      });
+    } else if (state.currentChapter !== chapterId || state.currentScene !== sceneId) {
+      // 如果場景已在 visitedScenes 中，但狀態不一致，只更新當前場景
+      engine.applyEffect({
+        type: 'changeScene',
+        chapterId: chapterId,
+        sceneId: sceneId,
+      });
     }
-  }, [refreshKey, chapterId, sceneId, router]);
+    
+    // 保存狀態到 localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('gameState', JSON.stringify(engine.getState()));
+      } catch (e) {
+        console.warn('無法保存遊戲狀態到 localStorage:', e);
+      }
+    }
+  }, [chapterId, sceneId]);
 
-  const scene = engine.getCurrentScene();
-  const state = engine.getState();
+  // 保存狀態到 localStorage（當狀態改變時）
+  useEffect(() => {
+    if (typeof window !== 'undefined' && engineRef.current) {
+      try {
+        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+      } catch (e) {
+        console.warn('無法保存遊戲狀態到 localStorage:', e);
+      }
+    }
+  }, [refreshKey]); // engine 來自 useRef，不需要在依賴中
+
+
+  // 監聽場景變化並導航（只在 engine 主動改變場景時導航）
+  // 這個 useEffect 作為備用機制，主要場景切換在 handlePuzzleSolve 中處理
+  useEffect(() => {
+    if (!engineRef.current) return;
+    
+    // 延遲執行，確保第一個 useEffect（URL 同步）先完成
+    const timer = setTimeout(() => {
+      if (!engineRef.current) return;
+      const state = engineRef.current.getState();
+      const targetChapter = state.currentChapter;
+      const targetScene = state.currentScene;
+      
+      // 只有在 engine 的狀態與 URL 不一致時才導航
+      // 這表示 engine 的狀態被主動改變了（例如解決謎題），而不是 URL 改變
+      if (targetChapter !== chapterId || targetScene !== sceneId) {
+        const currentState = engineRef.current.getState();
+        // 再次檢查，確保狀態確實改變了，且與當前 URL 不一致
+        if (currentState.currentChapter !== chapterId || currentState.currentScene !== sceneId) {
+          router.push(`/play/${currentState.currentChapter}/${currentState.currentScene}`);
+        }
+      }
+    }, 500); // 延遲更長，確保 URL 同步完成
+    
+    return () => clearTimeout(timer);
+  }, [refreshKey, router, chapterId, sceneId]); // engine 來自 useRef，不需要在依賴中
+
+  const scene = engineRef.current?.getCurrentScene() || null;
+  let state = engineRef.current?.getState() || {
+    currentChapter: chapterId,
+    currentScene: sceneId,
+    inventory: [],
+    flags: {},
+    interactions: [],
+    visitedScenes: [],
+  };
+  
+  // 確保當前場景在 visitedScenes 中（額外檢查，防止遺漏）
+  if (scene && engineRef.current && !state.visitedScenes.includes(scene.id)) {
+    engineRef.current.applyEffect({
+      type: 'changeScene',
+      chapterId: scene.chapterId,
+      sceneId: scene.id,
+    });
+    // 重新獲取狀態
+    state = engineRef.current.getState();
+  }
 
   // 進入場景時播放環境音
   useEffect(() => {
     if (scene?.id === 'ch1_sc1') {
       // 第一空間：播放醫院環境音（循環）
+      audioManager.playAmbient('/audio/ambient/ambient_hospital.mp3', 0.25);
+      
+      return () => {
+        // 離開場景時停止環境音
+        audioManager.stopAmbient();
+      };
+    } else if (scene?.id === 'ch1_sc2') {
+      // 第二空間：播放醫院環境音（循環）
       audioManager.playAmbient('/audio/ambient/ambient_hospital.mp3', 0.25);
       
       return () => {
@@ -86,7 +196,8 @@ export default function PlayPage() {
   }, []);
 
   const handleHotspotClick = useCallback((hotspotId: string) => {
-    if (!scene) return;
+    if (!scene || !engineRef.current) return;
+    const engine = engineRef.current;
     
     // 增加互動次數（用於閃爍頻率調整）
     setInteractionCount(prev => prev + 1);
@@ -193,16 +304,187 @@ export default function PlayPage() {
       }
     }
 
-    // 特殊處理：門的互動（觸發謎題）
-    if (hotspotId === 'door') {
-      // 點下大門時播放尖銳金屬聲
-      audioManager.playSFX('/audio/sfx/sfx_metal.mp3', 0.6);
-      const doorPuzzle = scene.puzzles.find(p => p.id === 'door_code');
-      if (doorPuzzle) {
-        setCurrentPuzzle(doorPuzzle);
+    // 第一空間特殊處理：門的互動
+    if (hotspotId === 'door' && scene?.id === 'ch1_sc1') {
+      const state = engine.getState();
+      if (!state.flags.door_701_open) {
+        // 門未打開，觸發謎題
+        // 點下大門時播放尖銳金屬聲
+        audioManager.playSFX('/audio/sfx/sfx_metal.mp3', 0.6);
+        const doorPuzzle = scene.puzzles.find(p => p.id === 'door_code');
+        if (doorPuzzle) {
+          setCurrentPuzzle(doorPuzzle);
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      } else {
+        // 門已打開，顯示確認對話
+        setShowDoor701Confirm(true);
         setRefreshKey(prev => prev + 1);
         return;
       }
+    }
+
+    // 第二空間特殊處理：病床（需要先取得鏡片碎角並揭示標籤才能解謎）
+    if (hotspotId === 'beds' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      
+      // 檢查1：是否有鏡片碎角
+      if (!state.inventory.includes('mirror_shard')) {
+        setCurrentDialog({
+          text: '每張病床上都有標籤，但字跡模糊不清。你需要工具才能看清上面的內容。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      
+      // 檢查2：是否已揭示標籤
+      if (!state.flags.beds_labels_revealed) {
+        engine.addInteraction('beds');
+        setCurrentDialog({
+          text: '病床上的標籤很模糊，看不清楚。你手中的鏡片碎角或許可以反射光線，讓你看清標籤上的字。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      
+      // 已滿足所有需求，檢查謎題需求並觸發謎題
+      const bedPuzzle = scene.puzzles.find(p => p.id === 'bed_arrangement');
+      if (bedPuzzle) {
+        // 再次驗證謎題需求（確保邏輯完整）
+        const requirementsMet = engine.checkPuzzleRequirements(bedPuzzle);
+        if (requirementsMet) {
+          setCurrentPuzzle(bedPuzzle);
+          setRefreshKey(prev => prev + 1);
+          return;
+        } else {
+          // 如果需求未滿足，顯示提示
+          setCurrentDialog({
+            text: '你需要先使用鏡片碎角看清病床上的標籤。',
+            type: 'narrator',
+          });
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+    }
+
+    // 第二空間特殊處理：破碎的鏡子（純提示，增強沉浸感）
+    if (hotspotId === 'mirror' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      // 如果已經收集了鏡片碎角，顯示不同的提示
+      if (state.inventory.includes('mirror_shard')) {
+        setCurrentDialog({
+          text: '破碎的鏡面映出你支離破碎的倒影。你已經撿起了地上的碎片，但鏡子本身依然破碎。',
+          type: 'narrator',
+        });
+      } else {
+        const hotspot = scene.hotspots.find(h => h.id === 'mirror');
+        if (hotspot?.hint) {
+          setCurrentDialog({
+            text: hotspot.hint,
+            type: 'narrator',
+          });
+        }
+      }
+      setRefreshKey(prev => prev + 1);
+      return;
+    }
+
+    // 第二空間特殊處理：702號病房的門
+    if (hotspotId === 'door_702' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      if (!state.flags.door_702_open) {
+        // 門未打開，顯示關閉提示
+        setCurrentDialog({
+          text: '702號病房的門緊閉著，無法進入。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      } else {
+        // 門已打開，顯示確認對話
+        setShowDoor702Confirm(true);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+
+    // 第二空間特殊處理：密碼盤（觸發可選謎題）
+    if (hotspotId === 'password_panel' && scene?.id === 'ch1_sc2') {
+      const mirrorPuzzle = scene.puzzles.find(p => p.id === 'mirror_password');
+      if (mirrorPuzzle) {
+        setCurrentPuzzle(mirrorPuzzle);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+
+    // 第二空間特殊處理：值班表（確保正確觸發事件，避免與其他互動混淆）
+    if (hotspotId === 'duty_schedule' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      // 如果已經有便條，直接顯示內容（重新閱讀）
+      if (state.inventory.includes('note')) {
+        const result = engine.triggerEvent('read_note');
+        if (result?.dialog) {
+          setCurrentDialog(result.dialog);
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      } else {
+        // 如果還沒有便條，先記錄互動，然後觸發獲得便條事件
+        engine.addInteraction('duty_schedule');
+        const result = engine.triggerEvent('read_duty_schedule');
+        if (result?.dialog) {
+          setCurrentDialog(result.dialog);
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+      // 如果事件觸發失敗，顯示 hotspot 提示
+      const hotspot = scene.hotspots.find(h => h.id === 'duty_schedule');
+      if (hotspot?.hint) {
+        setCurrentDialog({
+          text: hotspot.hint,
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+      }
+      return; // 確保不繼續執行 interactWithHotspot
+    }
+
+    // 第二空間特殊處理：地上的鏡片碎角（避免與其他互動混淆）
+    if (hotspotId === 'mirror_shard_spot' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      // 如果已經有鏡片碎角，顯示提示
+      if (state.inventory.includes('mirror_shard')) {
+        setCurrentDialog({
+          text: '你已經收集了這片鏡子碎片。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      // 記錄互動，然後觸發收集事件
+      engine.addInteraction('mirror_shard_spot');
+      const result = engine.triggerEvent('pickup_mirror_shard');
+      if (result?.dialog) {
+        setCurrentDialog(result.dialog);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      // 如果事件觸發失敗，顯示 hotspot 提示
+      const hotspot = scene.hotspots.find(h => h.id === 'mirror_shard_spot');
+      if (hotspot?.hint) {
+        setCurrentDialog({
+          text: hotspot.hint,
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+      }
+      return; // 確保不繼續執行 interactWithHotspot
     }
 
     const result = engine.interactWithHotspot(hotspotId);
@@ -240,9 +522,45 @@ export default function PlayPage() {
         });
       }
     }
-  }, [scene, engine]);
+  }, [scene]); // engine 來自 useRef，不需要在依賴中
 
   const handleItemClick = useCallback((itemId: string) => {
+    if (!engineRef.current) return;
+    const engine = engineRef.current;
+    
+    // 第二空間特殊處理：便條（觸發閱讀事件）
+    if (itemId === 'note' && scene?.id === 'ch1_sc2') {
+      const result = engine.triggerEvent('read_note');
+      if (result?.dialog) {
+        setCurrentDialog(result.dialog);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+    
+    // 第二空間特殊處理：鏡片碎角（用於病床）
+    if (itemId === 'mirror_shard' && scene?.id === 'ch1_sc2') {
+      const state = engine.getState();
+      // 檢查是否已與病床互動
+      if (state.interactions.includes('beds')) {
+        // 已與病床互動，觸發使用事件
+        const result = engine.triggerEvent('use_mirror_shard_on_beds');
+        if (result?.dialog) {
+          setCurrentDialog(result.dialog);
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      } else {
+        // 未與病床互動，提示先觀察病床
+        setCurrentDialog({
+          text: '你需要在病床附近使用這個道具。先點擊病床觀察一下。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+    
     const result = engine.useItem(itemId);
     if (result.success) {
       if (result.openPanel === 'pulse_clip') {
@@ -269,13 +587,15 @@ export default function PlayPage() {
       }
     }
     setRefreshKey(prev => prev + 1);
-  }, [scene, engine]);
+  }, [scene]); // engine 來自 useRef，不需要在依賴中
 
   const handlePuzzleSolve = useCallback((input: string | string[]) => {
-    if (!currentPuzzle) return;
+    if (!currentPuzzle || !engineRef.current) return;
+    const engine = engineRef.current;
     
     const solved = engine.solvePuzzle(currentPuzzle.id, input);
     if (solved) {
+      setPuzzleError(''); // 清除錯誤提示
       setCurrentPuzzle(null);
       
       // 獲取解決後的狀態（engine.solvePuzzle 已經應用了效果）
@@ -295,39 +615,67 @@ export default function PlayPage() {
           setCurrentDialog(dialogEffect.dialog);
         }
         
-        // 如果有場景切換，更新 refreshKey 讓 useEffect 處理場景切換
-        // 如果有對話，延遲更新 refreshKey，讓對話先顯示
-        if (sceneChanged) {
+        // 第二空間特殊處理：病床排列完成後觸發廣播事件
+        if (currentPuzzle.id === 'bed_arrangement' && scene?.id === 'ch1_sc2') {
+          // 等待謎題解決對話顯示完後，觸發廣播事件
+          setTimeout(() => {
+            // 播放廣播音效
+            audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
+            // 觸發劇烈閃爍
+            triggerIntenseFlicker();
+            
+            // 觸發 arrange_beds 事件（標記已設置，事件需求滿足）
+            const result = engine.triggerEvent('arrange_beds');
+            if (result) {
+              // 找出所有對話效果
+              const dialogEffects = result.effects.filter((e: any) => e.type === 'showDialog');
+              
+              // 先顯示廣播對話
+              const broadcastDialog = dialogEffects.find((e: any) => e.dialog?.type === 'broadcast');
+              if (broadcastDialog?.dialog) {
+                setCurrentDialog(broadcastDialog.dialog);
+                
+                // 再顯示旁白對話
+                setTimeout(() => {
+                  const narratorDialog = dialogEffects.find((e: any) => e.dialog?.type === 'narrator');
+                  if (narratorDialog?.dialog) {
+                    setCurrentDialog(narratorDialog.dialog);
+                  }
+                }, 3000);
+              }
+            }
+          }, 2000); // 等待謎題解決對話顯示完
+        }
+        
+        // 如果有場景切換，直接使用 router.push 切換場景
+        // 注意：病床排列謎題不再自動切換場景，改為讓玩家選擇
+        if (sceneChanged && currentPuzzle.id !== 'bed_arrangement') {
           if (dialogEffect?.dialog) {
             // 有對話時，延遲切換場景（讓用戶看完對話）
             setTimeout(() => {
-              setRefreshKey(prev => prev + 1);
+              router.push(`/play/${newState.currentChapter}/${newState.currentScene}`);
             }, 3000);
           } else {
-            // 沒有對話，立即觸發場景切換
-            setRefreshKey(prev => prev + 1);
+            // 沒有對話，立即切換場景
+            router.push(`/play/${newState.currentChapter}/${newState.currentScene}`);
           }
-        } else {
-          // 沒有場景切換，只更新 refreshKey
-          setRefreshKey(prev => prev + 1);
         }
+        
+        // 更新 refreshKey
+        setRefreshKey(prev => prev + 1);
       } else {
         // 如果 puzzle.onSolve 不存在，檢查 state 是否顯示場景已改變
         const sceneChanged = newState.currentChapter !== chapterId || newState.currentScene !== sceneId;
         if (sceneChanged) {
-          setRefreshKey(prev => prev + 1);
-        } else {
-          setRefreshKey(prev => prev + 1);
+          router.push(`/play/${newState.currentChapter}/${newState.currentScene}`);
         }
+        setRefreshKey(prev => prev + 1);
       }
     } else {
-      // 錯誤提示
-      setCurrentDialog({
-        text: '答案不正確，再試試看。',
-        type: 'system',
-      });
+      // 錯誤提示 - 在謎題組件內部顯示
+      setPuzzleError('答案不正確，再試試看。');
     }
-  }, [currentPuzzle, scene, engine, chapterId, sceneId]);
+  }, [currentPuzzle, scene, chapterId, sceneId, router]); // engine 來自 useRef，不需要在依賴中
 
 
   if (!scene) {
@@ -365,13 +713,13 @@ export default function PlayPage() {
       {/* 浮動控制按鈕組 - 右上角 */}
       <div className="absolute top-4 right-4 z-30 flex flex-col gap-2">
         {/* 返回按鈕 */}
-        <Link
-          href="/"
+        <button
+          onClick={() => setShowQuitConfirm(true)}
           className="group flex items-center gap-2 px-4 py-2.5 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
         >
           <ArrowLeft size={18} className="group-hover:translate-x-[-2px] transition-transform" />
-          <span className="text-sm font-medium hidden sm:inline">返回</span>
-        </Link>
+          <span className="text-sm font-medium hidden sm:inline">放棄遊戲</span>
+        </button>
 
         {/* 菜單按鈕組 */}
         <div className="flex flex-col gap-2">
@@ -390,12 +738,92 @@ export default function PlayPage() {
         </div>
       </div>
 
-      {/* 場景名稱 - 左上角浮動 */}
-      <div className="absolute top-4 left-4 z-30">
+      {/* 場景名稱和切換按鈕 - 左上角浮動 */}
+      <div className="absolute top-4 left-4 z-30 flex gap-2">
         <div className="px-4 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg shadow-lg">
           <div className="text-sm font-medium text-gray-300">{scene.name}</div>
         </div>
+        {/* 場景切換按鈕 */}
+        {state.visitedScenes.length > 1 && (
+          <button
+            onClick={() => setShowSceneSelector(!showSceneSelector)}
+            className="group flex items-center gap-2 px-4 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
+            title="切換場景"
+          >
+            <MapPin size={18} className="text-gray-300 group-hover:text-blue-400 transition-colors" />
+            <ChevronDown size={16} className={`transition-transform ${showSceneSelector ? 'rotate-180' : ''}`} />
+          </button>
+        )}
       </div>
+
+      {/* 場景選擇器 */}
+      {showSceneSelector && state.visitedScenes.length > 1 && (
+        <>
+          {/* 背景遮罩，點擊關閉 */}
+          <div
+            className="fixed inset-0 z-20"
+            onClick={() => setShowSceneSelector(false)}
+          />
+          <div className="absolute top-20 left-4 z-30 w-64 bg-dark-surface/95 backdrop-blur-xl border border-dark-border rounded-lg shadow-2xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">已訪問的場景</div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {state.visitedScenes.map((visitedSceneId) => {
+              const visitedScene = scenes[visitedSceneId];
+              if (!visitedScene) return null;
+              const isCurrentScene = visitedSceneId === sceneId;
+              
+              return (
+                <button
+                  key={visitedSceneId}
+                  onClick={() => {
+                    if (!engineRef.current) return;
+                    const engine = engineRef.current;
+                    // 切換場景，但保留所有狀態
+                    engine.applyEffect({
+                      type: 'changeScene',
+                      chapterId: visitedScene.chapterId,
+                      sceneId: visitedSceneId,
+                    });
+                    // 保存狀態
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem('gameState', JSON.stringify(engine.getState()));
+                      } catch (e) {
+                        console.warn('無法保存遊戲狀態:', e);
+                      }
+                    }
+                    // 導航到新場景
+                    router.push(`/play/${visitedScene.chapterId}/${visitedSceneId}`);
+                    setShowSceneSelector(false);
+                    setRefreshKey(prev => prev + 1);
+                  }}
+                  disabled={isCurrentScene}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
+                    isCurrentScene
+                      ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 cursor-not-allowed'
+                      : 'bg-dark-surface/50 border border-dark-border/50 text-gray-300 hover:bg-dark-surface hover:border-dark-border hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium">{visitedScene.name}</div>
+                      {visitedScene.description && (
+                        <div className="text-xs text-gray-400 mt-1 line-clamp-1">
+                          {visitedScene.description}
+                        </div>
+                      )}
+                    </div>
+                    {isCurrentScene && (
+                      <div className="text-xs text-blue-400 font-medium">當前</div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        </>
+      )}
 
       {/* 側邊道具欄 - 從右側滑入 */}
       <div className={`fixed top-0 right-0 h-full w-80 bg-dark-surface/95 backdrop-blur-xl border-l border-dark-border z-40 transform transition-transform duration-300 ease-out ${
@@ -434,11 +862,29 @@ export default function PlayPage() {
 
       {/* 謎題輸入 */}
       {currentPuzzle && (
-        <PuzzleInput
-          puzzle={currentPuzzle}
-          onSolve={handlePuzzleSolve}
-          onClose={() => setCurrentPuzzle(null)}
-        />
+        currentPuzzle.type === 'arrangement' ? (
+          <ArrangementPuzzle
+            puzzle={currentPuzzle}
+            onSolve={handlePuzzleSolve}
+            onClose={() => {
+              setCurrentPuzzle(null);
+              setPuzzleError('');
+            }}
+            error={puzzleError}
+            onErrorClear={() => setPuzzleError('')}
+          />
+        ) : (
+          <PuzzleInput
+            puzzle={currentPuzzle}
+            onSolve={handlePuzzleSolve}
+            onClose={() => {
+              setCurrentPuzzle(null);
+              setPuzzleError('');
+            }}
+            error={puzzleError}
+            onErrorClear={() => setPuzzleError('')}
+          />
+        )
       )}
 
       {/* 脈搏夾量測面板 */}
@@ -446,6 +892,8 @@ export default function PlayPage() {
         <PulseClipReader
           onClose={() => setShowPulseClip(false)}
           onBroadcast={() => {
+            if (!engineRef.current) return;
+            const engine = engineRef.current;
             // 廣播觸發：播放電流聲 → 劇烈閃爍 → 顯示文字
             audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
             triggerIntenseFlicker();
@@ -475,6 +923,8 @@ export default function PlayPage() {
         <UVLightPanel
           onClose={() => setShowUVLight(false)}
           onReveal={() => {
+            if (!engineRef.current) return;
+            const engine = engineRef.current;
             engine.setUVLightState(true);
             const state = engine.getState();
             const scene = engine.getCurrentScene();
@@ -490,6 +940,211 @@ export default function PlayPage() {
             setRefreshKey(prev => prev + 1);
           }}
         />
+      )}
+
+      {/* 放棄遊戲確認對話框 */}
+      {showQuitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">確認放棄遊戲</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                放棄遊戲後，所有遊玩進度將會被清除，包括：
+              </p>
+              <ul className="mt-3 text-sm text-gray-400 space-y-1 list-disc list-inside">
+                <li>當前遊戲進度</li>
+                <li>已收集的道具</li>
+                <li>已解決的謎題</li>
+                <li>所有遊戲記錄</li>
+              </ul>
+              <p className="mt-4 text-sm text-red-400 font-medium">
+                此操作無法復原，確定要放棄嗎？
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  // 清除 localStorage
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.removeItem('gameState');
+                    } catch (e) {
+                      console.warn('無法清除遊戲狀態:', e);
+                    }
+                  }
+                  // 導航到首頁
+                  router.push('/');
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              >
+                確認放棄
+              </button>
+              <button
+                onClick={() => setShowQuitConfirm(false)}
+                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 第一空間門確認對話框 */}
+      {showDoor701Confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 701</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                門已經打開。走廊的冷白色燈光從門縫中透進來，你聽到遠處傳來微弱的聲音。
+              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">
+                你要離開病房 701，前往走廊嗎？
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDoor701Confirm(false);
+                  // 切換到第二空間
+                  if (engineRef.current) {
+                    engineRef.current.applyEffect({
+                      type: 'changeScene',
+                      chapterId: 'ch1',
+                      sceneId: 'ch1_sc2',
+                    });
+                    // 保存狀態
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+                      } catch (e) {
+                        console.warn('無法保存遊戲狀態:', e);
+                      }
+                    }
+                  }
+                  router.push('/play/ch1/ch1_sc2');
+                  setRefreshKey(prev => prev + 1);
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              >
+                前往走廊
+              </button>
+              <button
+                onClick={() => setShowDoor701Confirm(false)}
+                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
+              >
+                再等等
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 第一空間門確認對話框 */}
+      {showDoor701Confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 701</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                門已經打開。走廊的冷白色燈光從門縫中透進來，你聽到遠處傳來微弱的聲音。
+              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">
+                你要離開病房 701，前往走廊嗎？
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDoor701Confirm(false);
+                  // 切換到第二空間
+                  if (engineRef.current) {
+                    engineRef.current.applyEffect({
+                      type: 'changeScene',
+                      chapterId: 'ch1',
+                      sceneId: 'ch1_sc2',
+                    });
+                    // 保存狀態
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+                      } catch (e) {
+                        console.warn('無法保存遊戲狀態:', e);
+                      }
+                    }
+                  }
+                  router.push('/play/ch1/ch1_sc2');
+                  setRefreshKey(prev => prev + 1);
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              >
+                前往走廊
+              </button>
+              <button
+                onClick={() => setShowDoor701Confirm(false)}
+                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
+              >
+                再等等
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 702號病房門確認對話框 */}
+      {showDoor702Confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">702號病房</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                門已經打開。你聽到裡面傳來微弱的聲音，像是有人在低語。
+              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">
+                你要進入702號病房嗎？
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDoor702Confirm(false);
+                  // 切換到第三空間
+                  if (engineRef.current) {
+                    engineRef.current.applyEffect({
+                      type: 'changeScene',
+                      chapterId: 'ch1',
+                      sceneId: 'ch1_sc3',
+                    });
+                    // 保存狀態
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+                      } catch (e) {
+                        console.warn('無法保存遊戲狀態:', e);
+                      }
+                    }
+                  }
+                  router.push('/play/ch1/ch1_sc3');
+                  setRefreshKey(prev => prev + 1);
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              >
+                進入
+              </button>
+              <button
+                onClick={() => setShowDoor702Confirm(false)}
+                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
+              >
+                再等等
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

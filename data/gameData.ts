@@ -337,7 +337,9 @@ export const scenes: Record<string, Scene> = {
         id: 'door_code',
         type: 'input',
         solution: '12080',
+        hint: '你的體能狀況很好吧？',
         onSolve: [
+          { type: 'setFlag', flag: 'door_701_open', value: true },
           {
             type: 'showDialog',
             dialog: {
@@ -345,7 +347,6 @@ export const scenes: Record<string, Scene> = {
               type: 'narrator',
             },
           },
-          { type: 'changeScene', chapterId: 'ch1', sceneId: 'ch1_sc2' },
         ],
       },
     ],
@@ -359,27 +360,27 @@ export const scenes: Record<string, Scene> = {
     id: 'ch1_sc2',
     chapterId: 'ch1',
     name: '走廊',
-    description: '走廊像被拉長的冷白色傷口。',
+    description: '走廊像被拉長的冷白色傷口。兩側掛著破碎的鏡子，每一片都映出你不同的角度——但沒有一片完整地映出「你」。燈光閃爍不是恐怖片那種誇張，而是更像電壓不足：這裡的恐怖是「省電」的。',
     background: '/images/bg_ch1_sc2_v1.png',
     hotspots: [
       {
         id: 'mirror',
         shape: 'rect',
-        coords: [0.1, 0.2, 0.3, 0.6],
+        coords: [0.1, 0.2, 0.35, 0.65],
         description: '破碎的鏡子',
-        hint: '它把你還給你，但先把你撕碎。',
+        hint: '破碎的鏡面映出你支離破碎的倒影。它把你還給你，但先把你撕碎。',
       },
       {
         id: 'mirror_shard_spot',
         shape: 'rect',
-        coords: [0.15, 0.5, 0.25, 0.6],
-        description: '鏡片碎角',
-        hint: '它不鋒利，但足夠讓人誤以為自己還能反擊。',
+        coords: [0.08, 0.87, 0.11, 0.93],
+        description: '地上的鏡片碎角',
+        hint: '一小片鏡子碎片掉在地上，邊緣鋒利。',
       },
       {
         id: 'duty_schedule',
         shape: 'rect',
-        coords: [0.4, 0.3, 0.6, 0.5],
+        coords: [-0.05, 0.3, 0.15, 0.5],
         description: '值班表',
         hint: '背面似乎有字。',
       },
@@ -388,7 +389,7 @@ export const scenes: Record<string, Scene> = {
         shape: 'rect',
         coords: [0.5, 0.5, 0.9, 0.8],
         description: '移動病床',
-        hint: '每張床上有字母標籤。',
+        hint: '每張床上有字母標籤，但字跡模糊。你需要工具才能看清。',
       },
       {
         id: 'password_panel',
@@ -397,6 +398,13 @@ export const scenes: Record<string, Scene> = {
         description: '密碼盤',
         hint: '從鏡子裡看是反的。',
       },
+      {
+        id: 'door_702',
+        shape: 'rect',
+        coords: [0.35, 0.15, 0.65, 0.4],
+        description: '702號病房',
+        hint: '門緊閉著，無法進入。',
+      },
     ],
     items: [
       items.mirror_shard,
@@ -404,9 +412,47 @@ export const scenes: Record<string, Scene> = {
     ],
     events: [
       {
+        id: 'pickup_mirror_shard',
+        name: '收集鏡片碎角',
+        description: '你撿起地上的鏡片碎角。',
+        requirements: [
+          { type: 'hasInteracted', hotspotId: 'mirror_shard_spot' },
+        ],
+        effects: [
+          { type: 'addItem', itemId: 'mirror_shard' },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '獲得：鏡片碎角\n\n一小片破碎的鏡子，邊緣鋒利。它不鋒利，但足夠讓人誤以為自己還能反擊。',
+              type: 'item',
+            },
+          },
+        ],
+        oneTime: true,
+      },
+      {
+        id: 'read_duty_schedule',
+        name: '查看值班表',
+        description: '你翻轉值班表，看到背面的便條。',
+        requirements: [
+          { type: 'hasInteracted', hotspotId: 'duty_schedule' },
+        ],
+        effects: [
+          { type: 'addItem', itemId: 'note' },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '獲得：值班表背面的便條\n\n用急促筆跡寫著：\n「主任只碰同意書。\n主治執行，住院記錄，\n護理師執行，實習生觀察。\n\n等級：主任 > 主治 > 住院 > 護理師 > 實習生」',
+              type: 'item',
+            },
+          },
+        ],
+        oneTime: true,
+      },
+      {
         id: 'read_note',
         name: '閱讀便條',
-        description: '你看到值班表背面的便條。',
+        description: '你再次查看便條內容。',
         requirements: [
           { type: 'hasItem', itemId: 'note' },
         ],
@@ -414,10 +460,30 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '在這裡，階級不是制度，是刀口的方向。',
+              text: '你再次查看便條：\n\n「主任只碰同意書。\n主治執行，住院記錄，\n護理師執行，實習生觀察。\n\n等級：主任 > 主治 > 住院 > 護理師 > 實習生」',
               type: 'narrator',
             },
           },
+        ],
+        oneTime: false,
+      },
+      {
+        id: 'use_mirror_shard_on_beds',
+        name: '用鏡片碎角觀察病床',
+        description: '你用鏡片碎角反射光線，看清了病床上的標籤。',
+        requirements: [
+          { type: 'hasItem', itemId: 'mirror_shard' },
+          { type: 'hasInteracted', hotspotId: 'beds' },
+        ],
+        effects: [
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '透過鏡片碎角的反射，你看到每張病床上都有模糊的標籤：\n\n「主任」、「主治」、「住院」、「護理師」、「實習生」\n\n這些標籤需要按照權力等級排列。便條上的線索突然有了意義。',
+              type: 'item',
+            },
+          },
+          { type: 'setFlag', flag: 'beds_labels_revealed', value: true },
         ],
         oneTime: true,
       },
@@ -429,11 +495,14 @@ export const scenes: Record<string, Scene> = {
           { type: 'custom', customCheck: (state) => state.flags.beds_arranged === true },
         ],
         effects: [
-          { type: 'showDialog', dialog: broadcasts.second },
+          { 
+            type: 'showDialog', 
+            dialog: broadcasts.second,
+          },
           {
             type: 'showDialog',
             dialog: {
-              text: '有人安排你逃跑；更恐怖的是——你不知道他是救你，還是在放你出去「示範」。',
+              text: '每張移動病床上的字母像屍體上的標籤。你把床推動時，輪子會發出像骨頭磨地的聲音。\n\n排好後俯瞰，字母連成方向，像有人在空中替你指路。\n\n有人安排你逃跑；更恐怖的是——你不知道他是救你，還是在放你出去「示範」。',
               type: 'narrator',
             },
           },
@@ -446,24 +515,42 @@ export const scenes: Record<string, Scene> = {
         id: 'mirror_password',
         type: 'input',
         solution: 'REFLECT',
-        hint: '從鏡子裡看密碼盤...',
+        hint: '你站到特定位置，從鏡子裡看到牆上的塗鴉不是亂寫，而像某人臨死前留下的「倒著說」。從鏡子裡看密碼盤是反的。',
         onSolve: [
           { type: 'setFlag', flag: 'mirror_solved', value: true },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你從鏡子裡看到密碼盤的反射。它把你還給你，但先把你撕碎。',
+              type: 'narrator',
+            },
+          },
         ],
       },
       {
         id: 'bed_arrangement',
-        type: 'sequence',
+        type: 'arrangement',
         solution: ['主任', '主治', '住院', '護理師', '實習生'],
-        hint: '按照職位高低排序...',
+        hint: '按照職位高低排序。每張移動病床上的字母像屍體上的標籤。你把床推動時，輪子會發出像骨頭磨地的聲音。\n\n提示：便條上提到「主任只碰同意書」，這暗示了權力等級。\n\n請依序點選職位，按照權力等級從高到低排列。',
+        requirements: [
+          { type: 'hasItem', itemId: 'mirror_shard' },
+          { type: 'hasFlag', flag: 'beds_labels_revealed', value: true },
+        ],
         onSolve: [
           { type: 'setFlag', flag: 'beds_arranged', value: true },
-          { type: 'changeScene', chapterId: 'ch1', sceneId: 'ch1_sc3' },
+          { type: 'setFlag', flag: 'door_702_open', value: true },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '排好後俯瞰，字母連成方向，像有人在空中替你指路。\n\n遠處傳來「喀」的一聲輕響，702號病房的門似乎打開了。',
+              type: 'narrator',
+            },
+          },
         ],
       },
     ],
     initialDialog: {
-      text: '走廊像被拉長的冷白色傷口。兩側掛著破碎的鏡子，每一片都映出你不同的角度——但沒有一片完整地映出「你」。',
+      text: '走廊像被拉長的冷白色傷口。兩側掛著破碎的鏡子，每一片都映出你不同的角度——但沒有一片完整地映出「你」。\n\n燈光閃爍不是恐怖片那種誇張，而是更像電壓不足：這裡的恐怖是「省電」的。\n\n你往前走，每一步都像踩在別人的影子上。',
       type: 'narrator',
     },
   },

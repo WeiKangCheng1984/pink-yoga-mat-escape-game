@@ -64,6 +64,13 @@ export class GameEngine {
     return event.requirements.every(req => this.checkRequirement(req));
   }
 
+  checkPuzzleRequirements(puzzle: Puzzle): boolean {
+    if (!puzzle.requirements || puzzle.requirements.length === 0) {
+      return true; // 沒有需求，直接通過
+    }
+    return puzzle.requirements.every(req => this.checkRequirement(req));
+  }
+
   applyEffect(effect: Effect): void {
     switch (effect.type) {
       case 'addItem':
@@ -170,11 +177,20 @@ export class GameEngine {
     const puzzle = scene.puzzles.find(p => p.id === puzzleId);
     if (!puzzle) return false;
 
+    // 檢查謎題需求
+    if (puzzle.requirements) {
+      for (const req of puzzle.requirements) {
+        if (!this.checkRequirement(req)) {
+          return false;
+        }
+      }
+    }
+
     let solved = false;
 
     if (puzzle.type === 'input') {
       solved = puzzle.solution === input;
-    } else if (puzzle.type === 'sequence') {
+    } else if (puzzle.type === 'sequence' || puzzle.type === 'arrangement') {
       if (Array.isArray(puzzle.solution) && Array.isArray(input)) {
         solved = JSON.stringify(puzzle.solution) === JSON.stringify(input);
       }
