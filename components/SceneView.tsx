@@ -12,7 +12,7 @@ interface SceneViewProps {
 }
 
 export interface SceneViewRef {
-  triggerFlicker: (intensity?: 'light' | 'strong' | 'intense') => void;
+  triggerFlicker: (intensity?: 'light' | 'strong' | 'intense' | 'red' | 'electric') => void;
 }
 
 const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
@@ -21,26 +21,52 @@ const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
   const [hoveredHotspot, setHoveredHotspot] = useState<string | null>(null);
   const [clickedHotspot, setClickedHotspot] = useState<string | null>(null);
   const [lightFlicker, setLightFlicker] = useState(false);
+  const [redFlicker, setRedFlicker] = useState(false);
+  const [electricFlicker, setElectricFlicker] = useState(false);
   const [lightIntensity, setLightIntensity] = useState(1);
   const [flickerKey, setFlickerKey] = useState(0);
+  const [flickerType, setFlickerType] = useState<'white' | 'red' | 'electric'>('white');
 
   // 觸發閃爍的外部方法
   useImperativeHandle(ref, () => ({
-    triggerFlicker: (intensity: 'light' | 'strong' | 'intense' = 'light') => {
+    triggerFlicker: (intensity: 'light' | 'strong' | 'intense' | 'red' | 'electric' = 'light') => {
       const durations = {
         light: 100,
         strong: 200,
         intense: 300,
-      };
-      const opacities = {
-        light: 0.05,
-        strong: 0.15,
-        intense: 0.25,
+        red: 150,
+        electric: 50,
       };
       
-      setLightFlicker(true);
-      setFlickerKey(prev => prev + 1);
-      setTimeout(() => setLightFlicker(false), durations[intensity]);
+      if (intensity === 'red') {
+        setFlickerType('red');
+        setRedFlicker(true);
+        setFlickerKey(prev => prev + 1);
+        setTimeout(() => setRedFlicker(false), durations[intensity]);
+      } else if (intensity === 'electric') {
+        setFlickerType('electric');
+        setFlickerKey(prev => prev + 1);
+        // 電流特效：快速閃爍多次
+        let flashCount = 0;
+        const electricFlash = () => {
+          setElectricFlicker(prev => {
+            flashCount++;
+            if (flashCount >= 6) {
+              return false;
+            }
+            return !prev;
+          });
+          if (flashCount < 6) {
+            setTimeout(electricFlash, 50);
+          }
+        };
+        electricFlash();
+      } else {
+        setFlickerType('white');
+        setLightFlicker(true);
+        setFlickerKey(prev => prev + 1);
+        setTimeout(() => setLightFlicker(false), durations[intensity]);
+      }
     },
   }));
 
@@ -53,13 +79,45 @@ const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
     const intervalReduction = Math.min(interactionCount * 500, 4000); // 最多減少4秒
     const flickerInterval = Math.max(minInterval, baseInterval - intervalReduction);
     
-    // 隨機輕微閃爍
+    // 隨機輕微閃爍（白色）
     const flickerTimer = setInterval(() => {
       if (Math.random() < 0.3) { // 30% 機率閃爍
+        setFlickerType('white');
         setLightFlicker(true);
         setTimeout(() => setLightFlicker(false), 100 + Math.random() * 200);
       }
     }, flickerInterval + Math.random() * 7000); // 加上隨機變化
+
+    // 偶爾紅色閃光（10% 機率）
+    const redFlickerTimer = setInterval(() => {
+      if (Math.random() < 0.1) { // 10% 機率紅色閃光
+        setFlickerType('red');
+        setRedFlicker(true);
+        setTimeout(() => setRedFlicker(false), 150 + Math.random() * 100);
+      }
+    }, 15000 + Math.random() * 10000); // 15-25秒間隔
+
+    // 偶爾電流特效（5% 機率）
+    const electricTimer = setInterval(() => {
+      if (Math.random() < 0.05) { // 5% 機率電流特效
+        setFlickerType('electric');
+        // 電流特效：快速閃爍多次
+        let flashCount = 0;
+        const electricFlash = () => {
+          setElectricFlicker(prev => {
+            flashCount++;
+            if (flashCount >= 6) {
+              return false;
+            }
+            return !prev;
+          });
+          if (flashCount < 6) {
+            setTimeout(electricFlash, 50);
+          }
+        };
+        electricFlash();
+      }
+    }, 20000 + Math.random() * 15000); // 20-35秒間隔
 
     // 偶爾亮度變化
     const intensityTimer = setInterval(() => {
@@ -71,6 +129,8 @@ const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
 
     return () => {
       clearInterval(flickerTimer);
+      clearInterval(redFlickerTimer);
+      clearInterval(electricTimer);
       clearInterval(intensityTimer);
     };
   }, [interactionCount]);
@@ -102,18 +162,45 @@ const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
 
   return (
     <div className="relative w-full h-full bg-dark-bg">
-      {/* 燈光閃爍層 */}
+      {/* 白色燈光閃爍層 */}
       <div 
         key={flickerKey}
         className={`
           absolute inset-0 pointer-events-none z-10
           transition-all duration-75
-          ${lightFlicker ? 'bg-white/15' : 'bg-transparent'}
+          ${lightFlicker && flickerType === 'white' ? 'bg-white/15' : 'bg-transparent'}
         `}
         style={{
           filter: `brightness(${lightIntensity})`,
         }}
       />
+      
+      {/* 紅色閃光層 */}
+      <div 
+        key={`red-${flickerKey}`}
+        className={`
+          absolute inset-0 pointer-events-none z-11
+          transition-all duration-75
+          ${redFlicker && flickerType === 'red' ? 'bg-red-500/25' : 'bg-transparent'}
+        `}
+        style={{
+          mixBlendMode: 'screen',
+        }}
+      />
+      
+      {/* 電流特效層 */}
+      {electricFlicker && flickerType === 'electric' && (
+        <div 
+          key={`electric-${flickerKey}`}
+          className="absolute inset-0 pointer-events-none z-12 animate-electric-shimmer"
+          style={{
+            mixBlendMode: 'screen',
+            filter: 'contrast(1.5)',
+            backgroundImage: 'linear-gradient(90deg, transparent 0%, rgba(34, 211, 238, 0.4) 25%, transparent 50%, rgba(34, 211, 238, 0.4) 75%, transparent 100%)',
+            backgroundSize: '200% 100%',
+          }}
+        />
+      )}
       
       {/* 背景圖 */}
       <div className="relative w-full h-full">

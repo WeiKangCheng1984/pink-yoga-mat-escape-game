@@ -97,6 +97,11 @@ export class GameEngine {
           }
         }
         break;
+      case 'triggerEvent':
+        if (effect.eventId) {
+          this.triggerEvent(effect.eventId);
+        }
+        break;
     }
   }
 

@@ -25,6 +25,7 @@ module.exports = {
         'flicker': 'flicker 0.1s ease-in-out',
         'flicker-slow': 'flicker 0.3s ease-in-out',
         'dim': 'dim 0.5s ease-in-out',
+        'electric-shimmer': 'electricShimmer 0.1s linear',
       },
       keyframes: {
         fadeIn: {
@@ -42,6 +43,10 @@ module.exports = {
         dim: {
           '0%, 100%': { filter: 'brightness(1)' },
           '50%': { filter: 'brightness(0.85)' },
+        },
+        electricShimmer: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
         },
       },
     },

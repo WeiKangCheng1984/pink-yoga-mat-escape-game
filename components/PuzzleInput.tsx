@@ -30,6 +30,10 @@ export default function PuzzleInput({ puzzle, onSolve, onClose, error: externalE
       // 處理序列輸入
       const sequence = input.split(',').map(s => s.trim());
       onSolve(sequence);
+    } else if (puzzle.type === 'combination') {
+      // 處理組合輸入（將輸入轉換成陣列）
+      const combination = input.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      onSolve(combination);
     } else {
       onSolve(input);
     }
