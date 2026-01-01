@@ -395,7 +395,7 @@ export default function PlayPage() {
           </button>
           
           {/* 謎題按鈕已隱藏 */}
-          {false && scene.puzzles.length > 0 && (
+          {false && scene && scene.puzzles.length > 0 && (
             <button
               onClick={() => {
                 if (scene.puzzles.length === 1) {
