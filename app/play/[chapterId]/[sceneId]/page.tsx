@@ -1266,12 +1266,14 @@ export default function PlayPage() {
             let delay = 3000; // 第一個對話顯示3秒後顯示下一個
             for (let i = 1; i < dialogEffects.length; i++) {
               setTimeout(() => {
-                if (dialogEffects[i]?.dialog) {
+                const dialogEffect = dialogEffects[i];
+                if (dialogEffect?.dialog) {
+                  const dialog = dialogEffect.dialog;
                   // 檢查是否為廣播類型
-                  if (dialogEffects[i].dialog.type === 'broadcast') {
-                    handleBroadcast(dialogEffects[i].dialog);
+                  if (dialog.type === 'broadcast') {
+                    handleBroadcast(dialog);
                   } else {
-                    setCurrentDialog(dialogEffects[i].dialog);
+                    setCurrentDialog(dialog);
                   }
                 }
               }, delay);
