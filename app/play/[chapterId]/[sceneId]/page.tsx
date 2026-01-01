@@ -10,7 +10,7 @@ import Inventory from '@/components/Inventory';
 import PuzzleInput from '@/components/PuzzleInput';
 import PulseClipReader from '@/components/PulseClipReader';
 import UVLightPanel from '@/components/UVLightPanel';
-import { ArrowLeft, HelpCircle, Package, X } from 'lucide-react';
+import { ArrowLeft, Package, X } from 'lucide-react';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audioManager';
 
@@ -329,12 +329,6 @@ export default function PlayPage() {
     }
   }, [currentPuzzle, scene, engine, chapterId, sceneId]);
 
-  const handlePuzzleTrigger = useCallback((puzzleId: string) => {
-    const puzzle = scene?.puzzles.find(p => p.id === puzzleId);
-    if (puzzle) {
-      setCurrentPuzzle(puzzle);
-    }
-  }, [scene]);
 
   if (!scene) {
     return (
@@ -393,25 +387,6 @@ export default function PlayPage() {
               </span>
             )}
           </button>
-          
-          {/* 謎題按鈕已隱藏 */}
-          {false && scene && scene.puzzles.length > 0 && (
-            <button
-              onClick={() => {
-                if (scene.puzzles.length === 1) {
-                  handlePuzzleTrigger(scene.puzzles[0].id);
-                } else {
-                  // 多個謎題時顯示選擇
-                  const firstPuzzle = scene.puzzles[0];
-                  handlePuzzleTrigger(firstPuzzle.id);
-                }
-              }}
-              className="flex items-center justify-center w-12 h-12 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
-              title="謎題"
-            >
-              <HelpCircle size={20} />
-            </button>
-          )}
         </div>
       </div>
 

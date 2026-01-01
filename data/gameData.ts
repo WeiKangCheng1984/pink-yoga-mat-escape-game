@@ -276,7 +276,7 @@ export const scenes: Record<string, Scene> = {
         requirements: [
           { type: 'hasInteracted', hotspotId: 'drawer' },
           { 
-            type: 'customCheck', 
+            type: 'custom', 
             customCheck: (state) => !state.inventory.includes('rusty_hairpin')
           },
         ],
@@ -426,7 +426,7 @@ export const scenes: Record<string, Scene> = {
         name: '排列病床',
         description: '按照職位高低排列病床。',
         requirements: [
-          { type: 'customCheck', customCheck: (state) => state.flags.beds_arranged === true },
+          { type: 'custom', customCheck: (state) => state.flags.beds_arranged === true },
         ],
         effects: [
           { type: 'showDialog', dialog: broadcasts.second },
