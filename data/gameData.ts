@@ -118,7 +118,7 @@ export const items: Record<string, Item> = {
   'ceramic_shard': {
     id: 'ceramic_shard',
     name: '陶瓷破片',
-    description: '像潔白的凶器。',
+    description: '像潔白的凶器。\n\n邊緣刻著細小的字：R=REINFORCED, T=TEMPORARY',
     collectible: true,
   },
   
@@ -870,56 +870,56 @@ export const scenes: Record<string, Scene> = {
       {
         id: 'plant',
         shape: 'rect',
-        coords: [0.2, 0.4, 0.4, 0.6],
+        coords: [0.245, 0.5725, 0.355, 0.6825],
         description: '乾枯盆栽',
         hint: '盆栽土壤不是土，是像被焚過的粉末。',
       },
       {
         id: 'toolbox',
         shape: 'rect',
-        coords: [0.5, 0.5, 0.7, 0.7],
+        coords: [0.168, 0.7835, 0.278, 0.8935],
         description: '工具箱',
         hint: '工具箱的鎖扣鏽蝕嚴重，需要除鏽劑才能打開。',
       },
       {
         id: 'restraints',
         shape: 'rect',
-        coords: [0.1, 0.6, 0.3, 0.8],
+        coords: [0.3147, 0.8114, 0.4247, 0.9214],
         description: '醫療束縛帶',
         hint: '束縛帶散落在地上，名牌是空白的。',
       },
       {
         id: 'pain_patch_spot',
         shape: 'rect',
-        coords: [0.3, 0.7, 0.5, 0.85],
+        coords: [0.5269, 0.913125, 0.6369, 0.985625],
         description: '止痛貼片盒',
         hint: '裂開的止痛貼片盒掉在地上。',
       },
       {
         id: 'fixed_point_1',
         shape: 'rect',
-        coords: [0.6, 0.3, 0.7, 0.4],
+        coords: [0.502, 0.3225, 0.557, 0.3775],
         description: '固定點1',
         hint: '欄杆上的固定點，名牌上沒有標記。',
       },
       {
         id: 'fixed_point_2',
         shape: 'rect',
-        coords: [0.75, 0.3, 0.85, 0.4],
+        coords: [0.6325, 0.3225, 0.695, 0.3775],
         description: '固定點2（加固扣）',
         hint: '欄杆上的固定點，名牌上標記了「加固扣」。',
       },
       {
         id: 'descend_point',
         shape: 'rect',
-        coords: [0.65, 0.4, 0.9, 0.5],
+        coords: [0.5969375, 0.393, 0.7344375, 0.4255],
         description: '垂降點',
         hint: '欄杆邊緣，準備垂降的地方。',
       },
       {
         id: 'railing_knots',
         shape: 'rect',
-        coords: [0.7, 0.25, 0.85, 0.35],
+        coords: [0.6039375, 0.28125, 0.6914375, 0.33125],
         description: '欄杆上的結痕',
         hint: '不同粗細、不同手法的舊結留下白痕。',
       },
@@ -964,7 +964,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你將除鏽劑倒在工具箱的鎖扣上，鏽蝕的卡榫發出「喀」的一聲，鬆開了。\n\n獲得：陶瓷破片\n\n陶瓷破片邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。',
+              text: '你將除鏽劑倒在工具箱的鎖扣上，鏽蝕的卡榫發出「喀」的一聲，鬆開了。\n\n獲得：陶瓷破片\n\n陶瓷破片邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。\n\n你仔細觀察破片邊緣，發現刻著細小的字：**R=REINFORCED, T=TEMPORARY**',
               type: 'item',
             },
           },
@@ -1056,13 +1056,59 @@ export const scenes: Record<string, Scene> = {
     puzzles: [
       {
         id: 'descend',
-        type: 'combination',
-        solution: ['blank_nameplate'],
-        hint: '你已經固定好繩索，現在需要確認垂降。這是你離開這棟樓的最後一步。',
+        type: 'visual_selection',
+        solution: ['fixed_point_3', 'fixed_point_6', 'fixed_point_7'],
+        hint: '欄杆上有 7 個固定點，但單一固定點無法承受你的體重。你需要選擇多個固定點，形成穩定的「支撐系統」。',
         requirements: [
-          { type: 'hasFlag', flag: 'fixed_point_selected', value: true },
+          { type: 'hasItem', itemId: 'blank_nameplate' },
+          { type: 'hasItem', itemId: 'ceramic_shard' },
+          { type: 'hasItem', itemId: 'rust_remover' },
+        ],
+        options: [
+          {
+            id: 'fixed_point_1',
+            label: '固定點 1',
+            description: '代號：FP-001\n亂碼：##@$%^&*()',
+          },
+          {
+            id: 'fixed_point_2',
+            label: '固定點 2',
+            description: '代號：FP-002\n亂碼：07-T@#$%^&*',
+          },
+          {
+            id: 'fixed_point_3',
+            label: '固定點 3',
+            description: '代號：FP-003\n亂碼：07-R#@$%^&*',
+          },
+          {
+            id: 'fixed_point_4',
+            label: '固定點 4',
+            description: '代號：FP-004\n亂碼：05-R@#$%^&',
+          },
+          {
+            id: 'fixed_point_5',
+            label: '固定點 5',
+            description: '代號：FP-005\n亂碼：07@#$%^&*()',
+          },
+          {
+            id: 'fixed_point_6',
+            label: '固定點 6',
+            description: '代號：FP-006\n亂碼：07-R@#$%^&',
+          },
+          {
+            id: 'fixed_point_7',
+            label: '固定點 7',
+            description: '代號：FP-007\n亂碼：R@#$%^&*()',
+          },
         ],
         onSolve: [
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你選擇了 3 個固定點，形成穩定的三角支撐系統。你將束縛帶分別固定在三個點上，扣環「喀」一聲扣上，你聽到的不是安全感，是**手術燈開啟前的那種確定**。\n\n你用他們束縛你的東西，替自己做一條路。\n\n三角支撐系統確保了繩索的穩定性。即使其中一個固定點出現問題，另外兩個也能支撐你的重量。',
+              type: 'narrator',
+            },
+          },
           {
             type: 'showDialog',
             dialog: {
@@ -1101,70 +1147,70 @@ export const scenes: Record<string, Scene> = {
       {
         id: 'cold_label_spot',
         shape: 'rect',
-        coords: [0.05, 0.1, 0.25, 0.25],
+        coords: [0.095, 0.13375, 0.205, 0.21625],
         description: '冷鏈運輸標籤',
         hint: '標籤貼在箱側，上面有日期和溫度。',
       },
       {
         id: 'bracelet_spot',
         shape: 'rect',
-        coords: [0.3, 0.1, 0.5, 0.25],
+        coords: [0.345, 0.13375, 0.455, 0.21625],
         description: '破裂的識別手環',
         hint: '手環掉在地上，已經破裂。',
       },
       {
         id: 'boxes_area',
         shape: 'rect',
-        coords: [0.1, 0.3, 0.9, 0.55],
+        coords: [0.28, 0.35625, 0.72, 0.49375],
         description: '醫療器材箱',
         hint: '四個箱子需要按照優先級排序。',
       },
       {
         id: 'heart_box',
         shape: 'rect',
-        coords: [0.1, 0.3, 0.3, 0.5],
+        coords: [0.145, 0.345, 0.255, 0.455],
         description: '心臟箱',
         hint: '心先走，因為最值錢。',
       },
       {
         id: 'lung_box',
         shape: 'rect',
-        coords: [0.3, 0.3, 0.5, 0.5],
+        coords: [0.345, 0.345, 0.455, 0.455],
         description: '肺箱',
         hint: '肺要看吸菸史。',
       },
       {
         id: 'liver_box',
         shape: 'rect',
-        coords: [0.5, 0.3, 0.7, 0.5],
+        coords: [0.545, 0.345, 0.655, 0.455],
         description: '肝箱',
         hint: '肝要看酒精。',
       },
       {
         id: 'kidney_box',
         shape: 'rect',
-        coords: [0.7, 0.3, 0.9, 0.5],
+        coords: [0.745, 0.345, 0.855, 0.455],
         description: '腎箱',
         hint: '腎看年紀。',
       },
       {
         id: 'exit',
         shape: 'rect',
-        coords: [0.4, 0.6, 0.6, 0.8],
+        coords: [0.445, 0.645, 0.555, 0.755],
         description: '逃生口',
         hint: '需要座標才能打開。',
       },
       {
         id: 'foam_code',
         shape: 'rect',
-        coords: [0.15, 0.35, 0.25, 0.45],
+        coords: [0.1725, 0.3725, 0.2275, 0.4275],
         description: '箱角保麗龍的壓印碼',
         hint: '07-A / 07-B / 07-C（或只剩半截）',
       },
       {
         id: 'tape_label',
         shape: 'rect',
-        coords: [0.75, 0.35, 0.85, 0.45],
+        coords: [0.7725, 0.3725, 0.8275, 0.4275],
         description: '封箱膠帶上的標語',
         hint: 'HANDLE WITH CARE',
       },
@@ -1298,6 +1344,48 @@ export const scenes: Record<string, Scene> = {
             type: 'showDialog',
             dialog: {
               text: '你低頭看手裡的粉紅瑜珈墊——它的內層其實有一道**壓紋暗線**，用 UV 燈照會顯出簡化地圖與標記：\n\n* 一個像「手術刀」的符號\n* 一個像「電塔」的符號\n* 一個寫著「回收點」的圈\n\n你終於懂了：這不是瑜珈墊，這是「逃亡者教材」。\n有人在更早之前就失敗過；而你，是下一個版本。',
+              type: 'narrator',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你在地上發現了一張被風吹來的紙。紙張很新，像剛從某個文件夾裡掉出來。',
+              type: 'narrator',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你撿起那張紙，上面是打印的報告：\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**實驗報告 RN-701-07**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n報告編號 RN-701-07。\n受試者07，\n房號 701-07。\n\n它反覆提醒我，在這裡，名字不是必要資訊。',
+              type: 'system',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '計畫目的寫得很乾淨，他們要確認的「會不會壞」。\n\n驗收標準被刻成兩個數字；心率必須經常落在「漂亮區間」。\n\n所有結果都被標上通過，像貼在箱側的勾選。',
+              type: 'system',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '所謂的「逃離」被定義為程序，註記不是事故，而是驗收。\n\n那些看似巧合的東西，UV、手把、除鏽劑、固定點，都是欄位裡的配置。路線不是逃生，而是導引，自由從來不是選擇，而是被允許。',
+              type: 'system',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '07是A級，可進入排程，離開場域即視為自願退出，退出後，風險自負，但定位與後續安排仍由團隊保留。\n\n活體運輸，只要避免摔落與污染，降低破損率即為可用。',
+              type: 'system',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你放下那張紙，風把它吹走了。\n\n但你已經讀完了。\n\n你終於明白：你以為的逃脫，只是他們設計好的驗收程序。',
               type: 'narrator',
             },
           },

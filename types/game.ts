@@ -57,11 +57,12 @@ export interface Dialog {
 
 export interface Puzzle {
   id: string;
-  type: 'input' | 'sequence' | 'arrangement' | 'combination';
+  type: 'input' | 'sequence' | 'arrangement' | 'combination' | 'visual_selection';
   solution: string | string[];
   hint?: string;
   requirements?: Requirement[];
   onSolve?: Effect[];
+  options?: Array<{ id: string; label: string; description?: string; visual?: string }>; // 視覺化選擇謎題的選項
 }
 
 export interface Scene {

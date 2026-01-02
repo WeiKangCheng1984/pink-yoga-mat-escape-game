@@ -146,6 +146,9 @@ export class GameEngine {
     const hotspot = scene.hotspots.find(h => h.id === hotspotId);
     if (!hotspot) return null;
 
+    // 先將 hotspot 加入到 interactions（這樣 hasInteracted 檢查才能通過）
+    this.addInteraction(hotspotId);
+
     // 檢查是否有可收集的道具
     const collectibleItem = scene.items.find(item => 
       item.collectible && hotspot.id.includes(item.id.split('_')[0])
@@ -209,6 +212,28 @@ export class GameEngine {
     } else if (puzzle.type === 'combination') {
       if (Array.isArray(puzzle.solution) && Array.isArray(input)) {
         solved = puzzle.solution.every(id => input.includes(id));
+      }
+    } else if (puzzle.type === 'visual_selection') {
+      // 視覺化選擇謎題：檢查選中的選項是否匹配答案
+      if (Array.isArray(puzzle.solution)) {
+        // 多選模式：檢查選中的選項是否完全匹配答案（順序不重要）
+        if (Array.isArray(input)) {
+          solved = puzzle.solution.length === input.length && 
+                   puzzle.solution.every(id => input.includes(id)) &&
+                   input.every(id => puzzle.solution.includes(id));
+        } else {
+          // 單選輸入但答案是多選，不匹配
+          solved = false;
+        }
+      } else {
+        // 單選模式
+        if (typeof input === 'string') {
+          solved = puzzle.solution === input;
+        } else if (Array.isArray(input) && input.length === 1) {
+          solved = puzzle.solution === input[0];
+        } else {
+          solved = false;
+        }
       }
     }
 

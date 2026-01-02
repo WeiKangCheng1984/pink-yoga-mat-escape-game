@@ -9,12 +9,14 @@ import DialogBox from '@/components/DialogBox';
 import Inventory from '@/components/Inventory';
 import PuzzleInput from '@/components/PuzzleInput';
 import ArrangementPuzzle from '@/components/ArrangementPuzzle';
+import VisualSelectionPuzzle from '@/components/VisualSelectionPuzzle';
 import PulseClipReader from '@/components/PulseClipReader';
 import UVLightPanel from '@/components/UVLightPanel';
-import { ArrowLeft, Package, X, MapPin, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Package, X, MapPin, ChevronDown, Code } from 'lucide-react';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audioManager';
 import { scenes, chapters } from '@/data/gameData';
+import DeveloperPanel from '@/components/DeveloperPanel';
 
 export default function PlayPage() {
   const params = useParams();
@@ -23,6 +25,7 @@ export default function PlayPage() {
   const chapterId = params.chapterId as string;
   const sceneId = params.sceneId as string;
   const debug = searchParams.get('debug') === '1';
+  const devMode = searchParams.get('dev') === '1';
 
   // 使用 useRef 保持 GameEngine 實例，避免重新掛載時重置狀態
   const engineRef = useRef<GameEngine | null>(null);
@@ -57,7 +60,42 @@ export default function PlayPage() {
   const [showDoor702Confirm, setShowDoor702Confirm] = useState(false);
   const [showDoor701Confirm, setShowDoor701Confirm] = useState(false);
   const [showWindow702Confirm, setShowWindow702Confirm] = useState(false);
+  const [showDeveloperPanel, setShowDeveloperPanel] = useState(false);
   const sceneViewRef = useRef<SceneViewRef>(null);
+
+  // 開發者模式快捷鍵（Ctrl+D 或 Cmd+D）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        setShowDeveloperPanel(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // 檢查是否隱藏開發者模式按鈕
+  const [hideDevMode, setHideDevMode] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hidden = localStorage.getItem('hideDevMode') === 'true';
+      setHideDevMode(hidden);
+    }
+  }, []);
+
+  // 如果 URL 中有 dev=1 參數，自動顯示開發者面板並重新啟用按鈕
+  useEffect(() => {
+    if (devMode) {
+      setShowDeveloperPanel(true);
+      // 重新啟用開發者模式按鈕
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('hideDevMode');
+        setHideDevMode(false);
+      }
+    }
+  }, [devMode]);
 
   // 根據 URL 初始化狀態（如果狀態與 URL 不一致）
   useEffect(() => {
@@ -958,41 +996,37 @@ export default function PlayPage() {
       }
     }
 
-    // 第四空間特殊處理：固定點選擇（需要名牌提示）
+    // 第四空間特殊處理：固定點（純提示，引導玩家去垂降點）
     if ((hotspotId === 'fixed_point_1' || hotspotId === 'fixed_point_2') && scene?.id === 'ch1_sc4') {
       const state = engine.getState();
-      if (!state.inventory.includes('blank_nameplate')) {
+      const hasRequiredItems = state.inventory.includes('blank_nameplate') && 
+                               state.inventory.includes('ceramic_shard') && 
+                               state.inventory.includes('rust_remover');
+      if (hasRequiredItems) {
         setCurrentDialog({
-          text: '你需要先收集束縛帶和名牌，才能知道哪個固定點有加固扣。',
+          text: '欄杆上有許多固定點，但單一固定點無法承受你的體重。你需要選擇多個固定點形成支撐系統。前往垂降點，根據你收集的線索選擇正確的固定點組合。',
           type: 'narrator',
         });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      if (hotspotId === 'fixed_point_1') {
-        // 錯誤的固定點
+      } else {
         setCurrentDialog({
-          text: '這個固定點沒有加固扣，不夠安全。名牌上標記了正確的位置。',
+          text: '欄杆上有固定點，但你需要收集更多線索才能判斷哪些是安全的。檢查你收集的道具。',
           type: 'narrator',
         });
-        setRefreshKey(prev => prev + 1);
-        return;
       }
-      // fixed_point_2 是正確的，觸發事件
-      const result = engine.triggerEvent('select_fixed_point');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
+      setRefreshKey(prev => prev + 1);
+      return;
     }
 
     // 第四空間特殊處理：垂降點（觸發垂降謎題）
     if (hotspotId === 'descend_point' && scene?.id === 'ch1_sc4') {
       const state = engine.getState();
-      if (!state.flags.fixed_point_selected) {
+      // 檢查是否有必要的道具
+      const hasRequiredItems = state.inventory.includes('blank_nameplate') && 
+                               state.inventory.includes('ceramic_shard') && 
+                               state.inventory.includes('rust_remover');
+      if (!hasRequiredItems) {
         setCurrentDialog({
-          text: '你需要先選擇並固定好繩索的固定點，才能安全垂降。',
+          text: '你需要收集必要的線索才能判斷哪些固定點是安全的。檢查你收集的道具：醫療束縛帶上的病患名牌、陶瓷破片、除鏽劑。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1455,6 +1489,20 @@ export default function PlayPage() {
               </span>
             )}
           </button>
+          {/* 開發者模式按鈕 - 可通過設置隱藏 */}
+          {(!hideDevMode || devMode) && (
+            <button
+              onClick={() => setShowDeveloperPanel(!showDeveloperPanel)}
+              className={`group flex items-center justify-center w-12 h-12 backdrop-blur-md border rounded-lg transition-all duration-200 shadow-lg ${
+                showDeveloperPanel
+                  ? 'bg-purple-600/30 border-purple-500 text-purple-200'
+                  : 'bg-purple-600/10 border-purple-500/30 text-purple-400/50 hover:bg-purple-600/20 hover:border-purple-500/50 hover:text-purple-300'
+              }`}
+              title="開發者模式 (Ctrl+D / Cmd+D)"
+            >
+              <Code size={22} className="transition-colors" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1593,6 +1641,17 @@ export default function PlayPage() {
             error={puzzleError}
             onErrorClear={() => setPuzzleError('')}
           />
+        ) : currentPuzzle.type === 'visual_selection' ? (
+          <VisualSelectionPuzzle
+            puzzle={currentPuzzle}
+            onSolve={handlePuzzleSolve}
+            onClose={() => {
+              setCurrentPuzzle(null);
+              setPuzzleError('');
+            }}
+            error={puzzleError}
+            onErrorClear={() => setPuzzleError('')}
+          />
         ) : (
           <PuzzleInput
             puzzle={currentPuzzle}
@@ -1653,6 +1712,15 @@ export default function PlayPage() {
             }
             setRefreshKey(prev => prev + 1);
           }}
+        />
+      )}
+
+      {/* 開發者面板 */}
+      {showDeveloperPanel && (
+        <DeveloperPanel
+          onClose={() => setShowDeveloperPanel(false)}
+          currentChapterId={chapterId}
+          currentSceneId={sceneId}
         />
       )}
 
