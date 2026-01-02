@@ -51,13 +51,7 @@ export default function DialogBox({
     }
   }, [dialog.audio]);
 
-  // 自動關閉（僅旁白）
-  useEffect(() => {
-    if (autoClose && dialog.type === 'narrator' && isComplete) {
-      const timer = setTimeout(() => onClose(), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isComplete, autoClose, dialog.type, onClose]);
+  // 移除自動關閉功能 - 所有訊息都需要手動關閉
 
   const getTypeStyles = () => {
     switch (dialog.type) {
@@ -93,7 +87,6 @@ export default function DialogBox({
   return (
     <div 
       className="fixed inset-0 z-50 flex items-end justify-center p-4 pointer-events-none md:items-center md:p-8"
-      onClick={isComplete ? onClose : undefined}
     >
       <div
         className={`max-w-3xl w-full p-6 md:p-8 rounded-2xl border-2 backdrop-blur-xl ${styles.container} pointer-events-auto shadow-2xl transform transition-all duration-300 ${
@@ -127,12 +120,15 @@ export default function DialogBox({
           )}
         </div>
 
-        {/* 繼續提示 */}
+        {/* 繼續提示 - 可點擊關閉 */}
         {showContinue && (
-          <div className="flex items-center justify-end gap-2 text-sm opacity-70 animate-bounce">
+          <button
+            onClick={onClose}
+            className="flex items-center justify-end gap-2 text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer ml-auto"
+          >
             <span>點擊繼續</span>
             <ChevronRight size={16} />
-          </div>
+          </button>
         )}
       </div>
     </div>

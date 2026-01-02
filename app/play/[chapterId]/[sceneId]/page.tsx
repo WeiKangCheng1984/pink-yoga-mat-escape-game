@@ -330,17 +330,13 @@ export default function PlayPage() {
         }
         // 收集脈搏夾
         engine.applyEffect({ type: 'addItem', itemId: 'pulse_clip' });
+        // 合併道具說明和事件對話
         setCurrentDialog({
-          text: '獲得：一次性指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。',
+          text: '獲得：一次性指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
           type: 'item',
         });
-        // 觸發拿起事件（延遲顯示）
-        setTimeout(() => {
-          const result = engine.triggerEvent('pickup_pulse_clip');
-          if (result?.dialog) {
-            setCurrentDialog(result.dialog);
-          }
-        }, 2000);
+        // 標記事件已觸發（避免重複觸發）
+        engine.addInteraction('pickup_pulse_clip');
         setRefreshKey(prev => prev + 1);
         return;
       } else {
@@ -360,17 +356,40 @@ export default function PlayPage() {
       if (!state.inventory.includes('yoga_mat')) {
         // 收集瑜珈墊
         engine.applyEffect({ type: 'addItem', itemId: 'yoga_mat' });
-        setCurrentDialog({
-          text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
-          type: 'item',
-        });
-        // 觸發檢查事件（延遲顯示）
-        setTimeout(() => {
-          const result = engine.triggerEvent('examine_yoga_mat');
-          if (result?.dialog) {
-            setCurrentDialog(result.dialog);
+        // 觸發檢查事件（獲得生鏽髮夾）
+        const result = engine.triggerEvent('examine_yoga_mat');
+        // 合併道具說明和事件對話
+        if (result?.effects) {
+          // 檢查是否有獲得生鏽髮夾
+          const addItemEffect = result.effects.find((e: any) => e.type === 'addItem' && e.itemId === 'rusty_hairpin');
+          if (addItemEffect) {
+            // 合併對話，包含獲得兩個道具的資訊
+            setCurrentDialog({
+              text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。\n\n你把墊子攤開，粉紅色像某種過於樂觀的謊。捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n獲得：生鏽髮夾\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
+              type: 'item',
+            });
+          } else {
+            // 只有瑜珈墊，合併事件對話
+            const dialogEffect = result.effects.find((e: any) => e.type === 'showDialog');
+            if (dialogEffect?.dialog) {
+              setCurrentDialog({
+                text: `獲得：粉紅瑜珈墊\n\n${dialogEffect.dialog.text}`,
+                type: 'item',
+              });
+            } else {
+              setCurrentDialog({
+                text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
+                type: 'item',
+              });
+            }
           }
-        }, 2000);
+        } else {
+          // 沒有事件效果，只顯示道具說明
+          setCurrentDialog({
+            text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
+            type: 'item',
+          });
+        }
         setRefreshKey(prev => prev + 1);
         return;
       } else {
@@ -1054,6 +1073,12 @@ export default function PlayPage() {
         // 如果是廣播類型的對話，使用統一的廣播處理
         if (dialogEvent.dialog.type === 'broadcast') {
           handleBroadcast(dialogEvent.dialog);
+        } else if (result.item) {
+          // 如果同時有事件對話和道具，合併顯示
+          setCurrentDialog({
+            text: `獲得：${result.item.name}\n\n${result.item.description}\n\n${dialogEvent.dialog.text}`,
+            type: 'item',
+          });
         } else {
           setCurrentDialog(dialogEvent.dialog);
         }
@@ -1104,6 +1129,17 @@ export default function PlayPage() {
     // 第二空間特殊處理：鏡片碎角（用於病床）
     if (itemId === 'mirror_shard' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
+      // 檢查是否已經使用過（已觀察病床）
+      if (state.flags.beds_labels_revealed) {
+        // 已經使用過，顯示包含觀察結果的道具描述
+        const item = scene?.items.find(i => i.id === itemId);
+        setCurrentDialog({
+          text: `${item?.name || '鏡片碎角'}\n\n${item?.description || ''}\n\n透過鏡片碎角的反射，你看到每張病床上都有模糊的標籤：「護理師」、「住院」、「主治」、「主任」。\n\n這些標籤有什麼意義嗎?`,
+          type: 'item',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
       // 檢查是否已與病床互動
       if (state.interactions.includes('beds')) {
         // 已與病床互動，觸發使用事件
@@ -1232,6 +1268,19 @@ export default function PlayPage() {
   const handlePuzzleSolve = useCallback((input: string | string[]) => {
     if (!currentPuzzle || !engineRef.current) return;
     const engine = engineRef.current;
+    
+    // 檢查謎題是否已經解決過
+    const solvedFlag = `puzzle_${currentPuzzle.id}_solved`;
+    if (engine.hasFlag(solvedFlag)) {
+      // 謎題已經解決過，顯示友好提示並關閉謎題界面
+      setCurrentPuzzle(null);
+      setCurrentDialog({
+        text: '這個謎題已經解決過了。',
+        type: 'narrator',
+      });
+      setRefreshKey(prev => prev + 1);
+      return;
+    }
     
     const solved = engine.solvePuzzle(currentPuzzle.id, input);
     if (solved) {
@@ -1527,7 +1576,7 @@ export default function PlayPage() {
         <DialogBox
           dialog={currentDialog}
           onClose={() => setCurrentDialog(null)}
-          autoClose={currentDialog.type === 'narrator'}
+          autoClose={false}
         />
       )}
 

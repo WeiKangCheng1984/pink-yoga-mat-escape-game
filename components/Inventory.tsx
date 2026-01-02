@@ -2,7 +2,6 @@
 
 import { items } from '@/data/gameData';
 import { Package, Sparkles } from 'lucide-react';
-import { useState } from 'react';
 
 interface InventoryProps {
   itemIds: string[];
@@ -10,7 +9,6 @@ interface InventoryProps {
 }
 
 export default function Inventory({ itemIds, onItemClick }: InventoryProps) {
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   if (itemIds.length === 0) {
     return (
@@ -43,46 +41,26 @@ export default function Inventory({ itemIds, onItemClick }: InventoryProps) {
           const item = items[itemId];
           if (!item) return null;
           
-          const isHovered = hoveredItem === itemId;
-          
           return (
             <button
               key={itemId}
               onClick={() => onItemClick?.(itemId)}
-              onMouseEnter={() => setHoveredItem(itemId)}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={`group relative p-4 bg-gradient-to-br from-dark-card to-dark-surface border-2 rounded-xl transition-all duration-200 ${
-                isHovered 
-                  ? 'border-gray-500 shadow-lg shadow-gray-900/50 scale-105' 
-                  : 'border-dark-border hover:border-gray-600'
-              }`}
+              className="group relative p-4 bg-gradient-to-br from-dark-card to-dark-surface border-2 rounded-xl transition-all duration-200 border-dark-border hover:border-gray-600"
             >
               {/* 道具圖示區域 */}
               <div className="flex items-center justify-center w-12 h-12 mb-3 bg-dark-bg/50 rounded-lg border border-dark-border group-hover:border-gray-500 transition-colors">
-                <Sparkles size={20} className={`transition-colors ${
-                  isHovered ? 'text-yellow-400' : 'text-gray-500'
-                }`} />
+                <Sparkles size={20} className="transition-colors text-gray-500 group-hover:text-yellow-400" />
               </div>
 
               {/* 道具名稱 */}
               <div className="text-left">
-                <div className={`text-sm font-medium transition-colors line-clamp-2 ${
-                  isHovered ? 'text-white' : 'text-gray-300'
-                }`}>
+                <div className="text-sm font-medium transition-colors line-clamp-2 text-gray-300 group-hover:text-white">
                   {item.name}
                 </div>
                 {item.usable && (
                   <div className="text-xs text-blue-400 mt-1">可使用</div>
                 )}
               </div>
-
-              {/* Hover 詳情卡片 */}
-              {isHovered && (
-                <div className="absolute left-full ml-4 top-0 w-64 p-4 bg-dark-surface border border-dark-border rounded-lg shadow-2xl z-50 pointer-events-none">
-                  <div className="text-sm font-semibold text-gray-200 mb-2">{item.name}</div>
-                  <div className="text-xs text-gray-400 leading-relaxed">{item.description}</div>
-                </div>
-              )}
             </button>
           );
         })}

@@ -70,10 +70,10 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
               <div className="space-y-4">
                 <div className="text-xs text-yellow-400 mb-4">UV 光照射中...</div>
                 <div className="text-2xl font-bold text-yellow-300 font-mono mb-2">
-                  Squat: 120kg
+                  深蹲: 120kg
                 </div>
                 <div className="text-2xl font-bold text-yellow-300 font-mono">
-                  Bench: 80kg
+                  臥推: 80kg
                 </div>
                 <div className="text-xs text-gray-400 mt-6 leading-relaxed">
                   你突然明白：有人不是在治療你，是在訓練你。
@@ -123,6 +123,7 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
     </div>
   );
 }
+
 
 
 

@@ -182,6 +182,13 @@ export class GameEngine {
     const puzzle = scene.puzzles.find(p => p.id === puzzleId);
     if (!puzzle) return false;
 
+    // 檢查謎題是否已經解決過
+    const solvedFlag = `puzzle_${puzzleId}_solved`;
+    if (this.hasFlag(solvedFlag)) {
+      // 謎題已經解決過，不再處理
+      return false;
+    }
+
     // 檢查謎題需求
     if (puzzle.requirements) {
       for (const req of puzzle.requirements) {
@@ -207,6 +214,8 @@ export class GameEngine {
 
     if (solved && puzzle.onSolve) {
       puzzle.onSolve.forEach(effect => this.applyEffect(effect));
+      // 標記謎題已解決
+      this.state.flags[solvedFlag] = true;
     }
 
     return solved;

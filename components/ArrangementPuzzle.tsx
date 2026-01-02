@@ -92,9 +92,11 @@ export default function ArrangementPuzzle({ puzzle, onSolve, onClose, error: ext
         )}
 
         {/* 選擇說明 */}
-        <div className="mb-4 text-sm text-gray-400">
-          按照職位高低順序，依序點選以下選項：
-        </div>
+        {puzzle.id !== 'bed_arrangement' && (
+          <div className="mb-4 text-sm text-gray-400">
+            按照職位高低順序，依序點選以下選項：
+          </div>
+        )}
 
         {/* 可選選項（打亂順序） */}
         <div className="mb-6">
