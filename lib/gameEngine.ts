@@ -139,6 +139,8 @@ export class GameEngine {
     };
   }
 
+  // 注意：interactWithHotspot 已廢棄，道具獲取現在統一通過 handleItemCollection 處理
+  // 此方法保留作為後備，但不再自動檢測和添加道具
   interactWithHotspot(hotspotId: string): { events: any[]; item?: Item } | null {
     const scene = this.getCurrentScene();
     if (!scene) return null;
@@ -149,14 +151,9 @@ export class GameEngine {
     // 先將 hotspot 加入到 interactions（這樣 hasInteracted 檢查才能通過）
     this.addInteraction(hotspotId);
 
-    // 檢查是否有可收集的道具
-    const collectibleItem = scene.items.find(item => 
-      item.collectible && hotspot.id.includes(item.id.split('_')[0])
-    );
-
     const triggeredEvents: any[] = [];
 
-    // 檢查所有事件
+    // 檢查所有事件（但不自動添加道具，道具獲取由事件系統處理）
     scene.events.forEach(event => {
       const result = this.triggerEvent(event.id);
       if (result) {
@@ -167,14 +164,9 @@ export class GameEngine {
       }
     });
 
-    // 如果有可收集道具，加入背包
-    if (collectibleItem && !this.hasItem(collectibleItem.id)) {
-      this.state.inventory.push(collectibleItem.id);
-    }
-
     return {
       events: triggeredEvents,
-      item: collectibleItem,
+      item: undefined, // 不再自動檢測道具
     };
   }
 
@@ -203,7 +195,7 @@ export class GameEngine {
 
     let solved = false;
 
-    if (puzzle.type === 'input') {
+    if (puzzle.type === 'input' || puzzle.type === 'combination_lock') {
       solved = puzzle.solution === input;
     } else if (puzzle.type === 'sequence' || puzzle.type === 'arrangement') {
       if (Array.isArray(puzzle.solution) && Array.isArray(input)) {

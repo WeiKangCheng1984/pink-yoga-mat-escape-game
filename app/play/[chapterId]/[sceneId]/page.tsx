@@ -10,12 +10,13 @@ import Inventory from '@/components/Inventory';
 import PuzzleInput from '@/components/PuzzleInput';
 import ArrangementPuzzle from '@/components/ArrangementPuzzle';
 import VisualSelectionPuzzle from '@/components/VisualSelectionPuzzle';
+import CombinationLock from '@/components/CombinationLock';
 import PulseClipReader from '@/components/PulseClipReader';
 import UVLightPanel from '@/components/UVLightPanel';
 import { ArrowLeft, Package, X, MapPin, ChevronDown, Code } from 'lucide-react';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audioManager';
-import { scenes, chapters } from '@/data/gameData';
+import { scenes, chapters, items } from '@/data/gameData';
 import DeveloperPanel from '@/components/DeveloperPanel';
 
 export default function PlayPage() {
@@ -67,6 +68,184 @@ export default function PlayPage() {
   const [showDeveloperPanel, setShowDeveloperPanel] = useState(false);
   const sceneViewRef = useRef<SceneViewRef>(null);
   const isDescendPuzzleCompleteRef = useRef(false);
+
+  // 添加對話到隊列（需要在 handleItemCollection 之前定義）
+  const addDialogsToQueue = useCallback((dialogs: Dialog[]) => {
+    if (dialogs.length === 0) return;
+    
+    // 使用函數式更新來避免閉包問題
+    setCurrentDialog(current => {
+      if (!current) {
+        // 如果當前沒有對話，直接顯示第一個，其餘加入隊列
+        const firstDialog = dialogs[0];
+        // 檢查是否為廣播類型，需要特殊處理
+        if (firstDialog.type === 'broadcast') {
+          // 播放廣播音效
+          audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
+          // 觸發劇烈閃爍
+          if (sceneViewRef.current) {
+            sceneViewRef.current.triggerFlicker('intense');
+            setTimeout(() => {
+              sceneViewRef.current?.triggerFlicker('strong');
+            }, 200);
+            setTimeout(() => {
+              sceneViewRef.current?.triggerFlicker('intense');
+            }, 400);
+          }
+          // 廣播對話需要特殊處理，先返回 null，然後在 setTimeout 中設置
+          setTimeout(() => {
+            setCurrentDialog(firstDialog);
+            if (dialogs.length > 1) {
+              setDialogQueue(dialogs.slice(1));
+            }
+          }, 0);
+          return null;
+        } else {
+          // 使用 setTimeout 確保狀態更新順序正確
+          setTimeout(() => {
+            if (dialogs.length > 1) {
+              setDialogQueue(dialogs.slice(1));
+            }
+          }, 0);
+          return firstDialog;
+        }
+      } else {
+        // 如果當前有對話，將所有新對話加入隊列
+        setDialogQueue(prev => [...prev, ...dialogs]);
+        return current;
+      }
+    });
+  }, []);
+
+  // 統一道具獲取處理函數
+  const handleItemCollection = useCallback((hotspotId: string): boolean => {
+    if (!engineRef.current) return false;
+    const engine = engineRef.current;
+    const scene = engine.getCurrentScene();
+    if (!scene) return false;
+    const state = engine.getState();
+    
+    // 步驟1：檢查是否有對應的事件映射
+    const eventId = scene.hotspotEventMap?.[hotspotId];
+    if (!eventId) return false; // 沒有對應事件，返回 false 繼續通用處理
+    
+    // 步驟2：檢查事件是否存在
+    const event = scene.events.find(e => e.id === eventId);
+    if (!event) {
+      console.warn(`事件 ${eventId} 不存在於場景 ${scene.id}`);
+      return false;
+    }
+    
+    // 步驟3：檢查事件是否會添加道具（通過檢查 effects 中是否有 addItem）
+    const addItemEffects = event.effects.filter((e: any) => e.type === 'addItem');
+    if (addItemEffects.length === 0) {
+      // 這個事件不會添加道具，可能不是道具獲取事件，返回 false
+      return false;
+    }
+    
+    // 步驟4：檢查是否已收集所有相關道具（快速檢查，避免不必要的處理）
+    const collectedItems = addItemEffects
+      .map((e: any) => e.itemId)
+      .filter((itemId: string) => state.inventory.includes(itemId));
+    
+    if (collectedItems.length > 0) {
+      // 已經收集了部分或全部道具，顯示友好提示
+      const itemNames = collectedItems.map((itemId: string) => {
+        const item = items[itemId];
+        return item?.name || itemId;
+      }).join('、');
+      setCurrentDialog({
+        text: `你已經收集了${itemNames}。`,
+        type: 'system',
+      });
+      setRefreshKey(prev => prev + 1);
+      return true; // 已處理，不需要繼續
+    }
+    
+    // 步驟5：先記錄互動（確保 hasInteracted 檢查能通過）
+    engine.addInteraction(hotspotId);
+    
+    // 步驟6：檢查事件前置條件（現在 hasInteracted 檢查應該能通過）
+    const requirementsMet = engine.checkEventRequirements(event);
+    if (!requirementsMet) {
+      // 前置條件不滿足，顯示提示
+      const hotspot = scene.hotspots.find(h => h.id === hotspotId);
+      if (hotspot?.hint) {
+        setCurrentDialog({
+          text: hotspot.hint,
+          type: 'narrator',
+        });
+      } else {
+        setCurrentDialog({
+          text: '這裡似乎需要滿足某些條件才能互動。',
+          type: 'narrator',
+        });
+      }
+      setRefreshKey(prev => prev + 1);
+      return true; // 已處理，不需要繼續
+    }
+    
+    // 步驟7：處理特殊效果（閃爍、音效等）
+    if (hotspotId === 'pulse_clip_spot') {
+      // 脈搏夾使用時短暫閃爍
+      if (sceneViewRef.current) {
+        sceneViewRef.current.triggerFlicker('light');
+      }
+    } else if (hotspotId === 'recorder_spot') {
+      // 錄音筆播放音效
+      audioManager.playSFX('/audio/sfx/sfx_recorder_click.mp3', 0.6);
+    } else if (hotspotId === 'mirror_shard_spot') {
+      // 鏡片碎角玻璃破碎音效
+      audioManager.playSFX('/audio/sfx/sfx_glass_break.mp3', 0.6);
+    } else if (hotspotId === 'duty_schedule') {
+      // 值班表紙張翻動音效
+      audioManager.playSFX('/audio/sfx/sfx_paper_rustle.mp3', 0.5);
+    } else if (hotspotId === 'plant') {
+      // 除鏽劑音效
+      audioManager.playSFX('/audio/sfx/sfx_rust_remover.mp3', 0.6);
+    }
+    
+    // 步驟8：觸發事件
+    const result = engine.triggerEvent(eventId);
+    if (result) {
+      // 步驟9：統一處理對話顯示
+      // 注意：事件中已經定義了所有對話（包括道具描述），直接使用即可
+      const dialogEffects = result.effects.filter((e: any) => e.type === 'showDialog');
+      
+      // 構建對話隊列：直接使用事件中定義的對話（保持原有順序）
+      const dialogs: Dialog[] = [];
+      
+      // 添加所有事件對話（包括道具描述、旁白、系統、廣播等）
+      dialogEffects.forEach((effect: any) => {
+        if (effect.dialog) {
+          dialogs.push(effect.dialog);
+        }
+      });
+      
+      // 使用對話隊列顯示
+      if (dialogs.length > 0) {
+        addDialogsToQueue(dialogs);
+      }
+      
+      // 觸發重新渲染，確保背包更新
+      setRefreshKey(prev => prev + 1);
+      return true; // 已處理，不需要繼續
+    } else {
+      // 事件觸發失敗，可能是條件不滿足或已觸發過
+      console.warn(`事件 ${eventId} 觸發失敗`);
+    }
+    
+    // 事件觸發失敗，顯示 hotspot 提示
+    const hotspot = scene.hotspots.find(h => h.id === hotspotId);
+    if (hotspot?.hint) {
+      setCurrentDialog({
+        text: hotspot.hint,
+        type: 'narrator',
+      });
+      setRefreshKey(prev => prev + 1);
+    }
+    return true; // 已處理，不需要繼續
+  }, [engineRef, setCurrentDialog, setRefreshKey, addDialogsToQueue, items]);
 
   // 處理對話關閉：如果有隊列，顯示下一個對話
   const handleDialogClose = useCallback(() => {
@@ -126,85 +305,15 @@ export default function PlayPage() {
     });
   }, []);
 
-  // 添加對話到隊列
-  const addDialogsToQueue = useCallback((dialogs: Dialog[]) => {
-    if (dialogs.length === 0) return;
-    
-    // 使用函數式更新來避免閉包問題
-    setCurrentDialog(current => {
-      if (!current) {
-        // 如果當前沒有對話，直接顯示第一個，其餘加入隊列
-        const firstDialog = dialogs[0];
-        // 檢查是否為廣播類型，需要特殊處理
-        if (firstDialog.type === 'broadcast') {
-          // 播放廣播音效
-          audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
-          // 觸發劇烈閃爍
-          if (sceneViewRef.current) {
-            sceneViewRef.current.triggerFlicker('intense');
-            setTimeout(() => {
-              sceneViewRef.current?.triggerFlicker('strong');
-            }, 200);
-            setTimeout(() => {
-              sceneViewRef.current?.triggerFlicker('intense');
-            }, 400);
-          }
-          // 廣播對話需要特殊處理，先返回 null，然後在 setTimeout 中設置
-          setTimeout(() => {
-            setCurrentDialog(firstDialog);
-            if (dialogs.length > 1) {
-              setDialogQueue(dialogs.slice(1));
-            }
-          }, 0);
-          return null;
-        } else {
-          // 使用 setTimeout 確保狀態更新順序正確
-          setTimeout(() => {
-            if (dialogs.length > 1) {
-              setDialogQueue(dialogs.slice(1));
-            }
-          }, 0);
-          return firstDialog;
-        }
-      } else {
-        // 如果當前有對話，將所有新對話加入隊列
-        setDialogQueue(prev => [...prev, ...dialogs]);
-        return current;
-      }
-    });
-  }, []);
+  // 開發者模式快捷鍵已移除（隱藏功能）
 
-  // 開發者模式快捷鍵（Ctrl+D 或 Cmd+D）
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        setShowDeveloperPanel(prev => !prev);
-      }
-    };
+  // 開發者模式按鈕默認隱藏，只能通過 URL 參數 ?dev=1 啟用
+  const [hideDevMode] = useState(true); // 默認隱藏
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // 檢查是否隱藏開發者模式按鈕
-  const [hideDevMode, setHideDevMode] = useState(false);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hidden = localStorage.getItem('hideDevMode') === 'true';
-      setHideDevMode(hidden);
-    }
-  }, []);
-
-  // 如果 URL 中有 dev=1 參數，自動顯示開發者面板並重新啟用按鈕
+  // 如果 URL 中有 dev=1 參數，自動顯示開發者面板
   useEffect(() => {
     if (devMode) {
       setShowDeveloperPanel(true);
-      // 重新啟用開發者模式按鈕
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('hideDevMode');
-        setHideDevMode(false);
-      }
     }
   }, [devMode]);
 
@@ -434,6 +543,11 @@ export default function PlayPage() {
     // 增加互動次數（用於閃爍頻率調整）
     setInteractionCount(prev => prev + 1);
 
+    // 步驟1：嘗試統一道具獲取處理
+    if (handleItemCollection(hotspotId)) {
+      return; // 已處理，不需要繼續
+    }
+
     // 純提示型 hotspot 處理（只顯示旁白對話，不觸發事件或獲得道具）
     const narrativeHotspots: Record<string, string> = {
       // 第一空間
@@ -473,94 +587,6 @@ export default function PlayPage() {
       return;
     }
 
-    // 特殊處理：脈搏夾收集
-    if (hotspotId === 'pulse_clip_spot') {
-      const state = engine.getState();
-      if (!state.inventory.includes('pulse_clip')) {
-        // 脈搏夾使用時短暫閃爍
-        if (sceneViewRef.current) {
-          sceneViewRef.current.triggerFlicker('light');
-        }
-        // 先添加道具，這樣事件才能觸發
-        engine.applyEffect({ type: 'addItem', itemId: 'pulse_clip' });
-        // 標記 hotspot 已互動（這樣 interactWithHotspot 才能觸發事件）
-        engine.addInteraction(hotspotId);
-        // 觸發 pickup_pulse_clip 事件（會顯示道具描述和廣播）
-        const result = engine.triggerEvent('pickup_pulse_clip');
-        if (result) {
-          // 獲取所有對話效果
-          const dialogEffects = result.effects?.filter((e: any) => e.type === 'showDialog') || [];
-          if (dialogEffects.length > 0) {
-            // 使用對話隊列顯示所有對話（道具描述 + 廣播）
-            const dialogs: Dialog[] = dialogEffects.map((e: any) => e.dialog).filter(Boolean);
-            addDialogsToQueue(dialogs);
-          }
-        }
-        setRefreshKey(prev => prev + 1);
-        return;
-      } else {
-        // 已經收集，顯示提示
-        setCurrentDialog({
-          text: '你已經收集了脈搏夾。可以在背包中使用它來測量數據。',
-          type: 'system',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
-
-    // 特殊處理：瑜珈墊收集
-    if (hotspotId === 'yoga_mat_spot') {
-      const state = engine.getState();
-      if (!state.inventory.includes('yoga_mat')) {
-        // 收集瑜珈墊
-        engine.applyEffect({ type: 'addItem', itemId: 'yoga_mat' });
-        // 觸發檢查事件（獲得生鏽髮夾）
-        const result = engine.triggerEvent('examine_yoga_mat');
-        // 合併道具說明和事件對話
-        if (result?.effects) {
-          // 檢查是否有獲得生鏽髮夾
-          const addItemEffect = result.effects.find((e: any) => e.type === 'addItem' && e.itemId === 'rusty_hairpin');
-          if (addItemEffect) {
-            // 合併對話，包含獲得兩個道具的資訊
-            setCurrentDialog({
-              text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。\n\n你把墊子攤開，粉紅色像某種過於樂觀的謊。捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n獲得：生鏽髮夾\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
-              type: 'item',
-            });
-          } else {
-            // 只有瑜珈墊，合併事件對話
-            const dialogEffect = result.effects.find((e: any) => e.type === 'showDialog');
-            if (dialogEffect?.dialog) {
-              setCurrentDialog({
-                text: `獲得：粉紅瑜珈墊\n\n${dialogEffect.dialog.text}`,
-                type: 'item',
-              });
-            } else {
-              setCurrentDialog({
-                text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
-                type: 'item',
-              });
-            }
-          }
-        } else {
-          // 沒有事件效果，只顯示道具說明
-          setCurrentDialog({
-            text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
-            type: 'item',
-          });
-        }
-        setRefreshKey(prev => prev + 1);
-        return;
-      } else {
-        // 已經收集，顯示提示
-        setCurrentDialog({
-          text: '你已經收集了瑜珈墊。',
-          type: 'system',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
 
     // 特殊處理：抽屜互動
     if (hotspotId === 'drawer') {
@@ -588,15 +614,6 @@ export default function PlayPage() {
       }
     }
 
-    // 第二空間：值班表互動（紙張翻動音效）
-    if (hotspotId === 'duty_schedule' && scene?.id === 'ch1_sc2') {
-      audioManager.playSFX('/audio/sfx/sfx_paper_rustle.mp3', 0.5);
-    }
-
-    // 第二空間：鏡片碎角收集（玻璃破碎音效）
-    if (hotspotId === 'mirror_shard_spot' && scene?.id === 'ch1_sc2') {
-      audioManager.playSFX('/audio/sfx/sfx_glass_break.mp3', 0.6);
-    }
 
     // 第二空間：病床排列（病床輪子音效）
     if (hotspotId === 'beds' && scene?.id === 'ch1_sc2') {
@@ -787,7 +804,7 @@ export default function PlayPage() {
       }
     }
 
-    // 第二空間特殊處理：值班表（確保正確觸發事件，避免與其他互動混淆）
+    // 第二空間特殊處理：值班表（如果已經有便條，觸發重新閱讀事件）
     if (hotspotId === 'duty_schedule' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
       // 如果已經有便條，直接顯示內容（重新閱讀）
@@ -798,157 +815,10 @@ export default function PlayPage() {
           setRefreshKey(prev => prev + 1);
           return;
         }
-      } else {
-        // 如果還沒有便條，先記錄互動，然後觸發獲得便條事件
-        engine.addInteraction('duty_schedule');
-        const result = engine.triggerEvent('read_duty_schedule');
-        if (result?.dialog) {
-          setCurrentDialog(result.dialog);
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
       }
-      // 如果事件觸發失敗，顯示 hotspot 提示
-      const hotspot = scene.hotspots.find(h => h.id === 'duty_schedule');
-      if (hotspot?.hint) {
-        setCurrentDialog({
-          text: hotspot.hint,
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-      }
-      return; // 確保不繼續執行 interactWithHotspot
+      // 如果沒有便條，會由 handleItemCollection 處理
     }
 
-    // 第二空間特殊處理：地上的鏡片碎角（避免與其他互動混淆）
-    if (hotspotId === 'mirror_shard_spot' && scene?.id === 'ch1_sc2') {
-      const state = engine.getState();
-      // 如果已經有鏡片碎角，顯示提示
-      if (state.inventory.includes('mirror_shard')) {
-        setCurrentDialog({
-          text: '你已經收集了這片鏡子碎片。',
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 記錄互動，然後觸發收集事件
-      engine.addInteraction('mirror_shard_spot');
-      const result = engine.triggerEvent('pickup_mirror_shard');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 如果事件觸發失敗，顯示 hotspot 提示
-      const hotspot = scene.hotspots.find(h => h.id === 'mirror_shard_spot');
-      if (hotspot?.hint) {
-        setCurrentDialog({
-          text: hotspot.hint,
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-      }
-      return; // 確保不繼續執行 interactWithHotspot
-    }
-
-    // 第三空間特殊處理：錄音筆
-    if (hotspotId === 'recorder_spot' && scene?.id === 'ch1_sc3') {
-      const state = engine.getState();
-      if (state.inventory.includes('recorder')) {
-        // 已經收集，顯示提示
-        setCurrentDialog({
-          text: '你已經收集了錄音筆。可以在背包中使用它來播放錄音。',
-          type: 'system',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 播放音效
-      audioManager.playSFX('/audio/sfx/sfx_recorder_click.mp3', 0.6);
-      // 記錄互動，然後觸發收集事件
-      engine.addInteraction('recorder_spot');
-      const result = engine.triggerEvent('pickup_recorder');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 如果事件觸發失敗，顯示 hotspot 提示
-      const hotspot = scene.hotspots.find(h => h.id === 'recorder_spot');
-      if (hotspot?.hint) {
-        setCurrentDialog({
-          text: hotspot.hint,
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-      }
-      return;
-    }
-
-    // 第三空間特殊處理：枕頭
-    if (hotspotId === 'pillow' && scene?.id === 'ch1_sc3') {
-      const state = engine.getState();
-      if (state.inventory.includes('diary')) {
-        // 已經收集，顯示提示
-        setCurrentDialog({
-          text: '你已經從枕頭下找到了日記本。',
-          type: 'system',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 記錄互動，然後觸發收集事件
-      engine.addInteraction('pillow');
-      const result = engine.triggerEvent('pickup_diary');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 如果事件觸發失敗，顯示 hotspot 提示
-      const hotspot = scene.hotspots.find(h => h.id === 'pillow');
-      if (hotspot?.hint) {
-        setCurrentDialog({
-          text: hotspot.hint,
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-      }
-      return;
-    }
-
-    // 第三空間特殊處理：床頭櫃
-    if (hotspotId === 'bedside_table' && scene?.id === 'ch1_sc3') {
-      const state = engine.getState();
-      if (state.inventory.includes('consent_form')) {
-        // 已經收集，顯示提示
-        setCurrentDialog({
-          text: '你已經從床頭櫃中找到了同意書。',
-          type: 'system',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 記錄互動，然後觸發收集事件
-      engine.addInteraction('bedside_table');
-      const result = engine.triggerEvent('pickup_consent_form');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 如果事件觸發失敗，顯示 hotspot 提示
-      const hotspot = scene.hotspots.find(h => h.id === 'bedside_table');
-      if (hotspot?.hint) {
-        setCurrentDialog({
-          text: hotspot.hint,
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-      }
-      return;
-    }
 
     // 第三空間特殊處理：衣櫃
     if (hotspotId === 'wardrobe' && scene?.id === 'ch1_sc3') {
@@ -1266,148 +1136,81 @@ export default function PlayPage() {
       }
     }
 
-    const result = engine.interactWithHotspot(hotspotId);
-    
-    if (result) {
-      // 第五空間特殊處理：腎箱、肝箱、肺箱（純提示型，不觸發事件）
-      if ((hotspotId === 'kidney_box' || hotspotId === 'liver_box' || hotspotId === 'lung_box') && scene?.id === 'ch1_sc5') {
-        const hotspot = scene.hotspots.find(h => h.id === hotspotId);
-        if (hotspot?.hint) {
-          setCurrentDialog({
-            text: hotspot.hint,
-            type: 'narrator',
-          });
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      }
-
-
-      // 特殊處理：第四空間工具箱（分離道具獲得提示，使用對話隊列）
-      if (hotspotId === 'toolbox' && scene?.id === 'ch1_sc4') {
-        const state = engine.getState();
-        const openToolboxEvent = result.events.find((e: any) => e.eventId === 'open_toolbox');
-        // 檢查是否觸發了 open_toolbox 事件且添加了 ceramic_shard 道具
-        if (openToolboxEvent && state.inventory.includes('ceramic_shard')) {
-          const item = scene.items.find(i => i.id === 'ceramic_shard');
-          // 獲取所有對話 effects
-          const dialogEffects = openToolboxEvent.effects?.filter((e: any) => e.type === 'showDialog') || [];
-          
-          // 構建對話隊列：道具獲得提示 + 所有事件對話
-          const dialogs: Dialog[] = [];
-          
-          // 第一個對話：道具獲得提示
-          dialogs.push({
-            text: `獲得：${item?.name || '陶瓷破片'}`,
-            type: 'item',
-          });
-          
-          // 後續對話：所有事件對話
-          dialogEffects.forEach((effect: any) => {
-            if (effect.dialog) {
-              dialogs.push(effect.dialog);
-            }
-          });
-          
-          // 使用對話隊列機制顯示所有對話
-          addDialogsToQueue(dialogs);
-          
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      }
-
-      // 第五空間特殊處理：冷鏈運輸標籤和識別手環（檢查是否已收集）
-      if ((hotspotId === 'cold_label_spot' || hotspotId === 'bracelet_spot') && scene?.id === 'ch1_sc5') {
-        const state = engine.getState();
-        // 如果已經收集，顯示提示
-        if (hotspotId === 'cold_label_spot' && state.inventory.includes('cold_chain_label')) {
-          setCurrentDialog({
-            text: '你已經收集了冷鏈運輸標籤。',
-            type: 'narrator',
-          });
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-        if (hotspotId === 'bracelet_spot' && state.inventory.includes('runner_bracelet')) {
-          setCurrentDialog({
-            text: '你已經收集了破裂的識別手環。',
-            type: 'narrator',
-          });
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      }
-
-      // 檢查是否有觸發的事件對話
-      const dialogEvent = result.events.find((e: any) => e.dialog);
-      
-      // 第五空間特殊處理：道具獲得時使用對話隊列（先顯示道具描述，再顯示敘述）
-      if (result.item && scene?.id === 'ch1_sc5') {
-        const dialogs: Dialog[] = [];
-        // 第一個對話：道具描述（藍色框）
-        dialogs.push({
-          text: `獲得：${result.item.name}\n\n${result.item.description}`,
-          type: 'item',
-        });
-        // 如果有事件對話，加入隊列
-        if (dialogEvent?.dialog) {
-          if (dialogEvent.dialog.type === 'broadcast') {
-            handleBroadcast(dialogEvent.dialog);
-          } else {
-            dialogs.push(dialogEvent.dialog);
-          }
-        }
-        // 使用對話隊列機制顯示所有對話
-        if (dialogs.length > 0) {
-          addDialogsToQueue(dialogs);
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      }
-      
-      if (dialogEvent?.dialog) {
-        // 如果是廣播類型的對話，使用統一的廣播處理
-        if (dialogEvent.dialog.type === 'broadcast') {
-          handleBroadcast(dialogEvent.dialog);
-        } else if (result.item) {
-          // 如果同時有事件對話和道具，合併顯示
-          setCurrentDialog({
-            text: `獲得：${result.item.name}\n\n${result.item.description}\n\n${dialogEvent.dialog.text}`,
-            type: 'item',
-          });
-        } else {
-          setCurrentDialog(dialogEvent.dialog);
-        }
-      } else if (result.item) {
-        // 如果獲得道具，顯示提示
-        setCurrentDialog({
-          text: `獲得：${result.item.name}\n\n${result.item.description}`,
-          type: 'item',
-        });
-      } else {
-        // 顯示 hotspot 的提示
-        const hotspot = scene.hotspots.find(h => h.id === hotspotId);
-        if (hotspot?.hint) {
-          setCurrentDialog({
-            text: hotspot.hint,
-            type: 'narrator',
-          });
-        }
-      }
-      
-      setRefreshKey(prev => prev + 1);
-    } else {
-      // 沒有觸發事件，顯示 hotspot 描述
+    // 第五空間特殊處理：腎箱、肝箱、肺箱（純提示型，不觸發事件）
+    if ((hotspotId === 'kidney_box' || hotspotId === 'liver_box' || hotspotId === 'lung_box') && scene?.id === 'ch1_sc5') {
       const hotspot = scene.hotspots.find(h => h.id === hotspotId);
-      if (hotspot?.description || hotspot?.hint) {
+      if (hotspot?.hint) {
         setCurrentDialog({
-          text: hotspot.hint || hotspot.description || '',
+          text: hotspot.hint,
           type: 'narrator',
         });
+        setRefreshKey(prev => prev + 1);
+        return;
       }
     }
-  }, [scene]); // engine 來自 useRef，不需要在依賴中
+
+    // 特殊處理：第四空間工具箱（分離道具獲得提示，使用對話隊列）
+    if (hotspotId === 'toolbox' && scene?.id === 'ch1_sc4') {
+      const state = engine.getState();
+      if (!state.inventory.includes('rust_remover')) {
+        setCurrentDialog({
+          text: '工具箱的鎖扣鏽蝕嚴重，需要除鏽劑才能打開。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      // 播放音效
+      audioManager.playSFX('/audio/sfx/sfx_toolbox_open.mp3', 0.7);
+      // 記錄互動，然後觸發打開事件
+      engine.addInteraction('toolbox');
+      const result = engine.triggerEvent('open_toolbox');
+      if (result) {
+        // 獲取所有對話效果
+        const dialogEffects = result.effects.filter((e: any) => e.type === 'showDialog');
+        const addItemEffects = result.effects.filter((e: any) => e.type === 'addItem');
+        
+        // 構建對話隊列：先顯示道具描述，再顯示事件對話
+        const dialogs: Dialog[] = [];
+        
+        // 添加道具描述對話（藍色框）
+        addItemEffects.forEach((effect: any) => {
+          const item = items[effect.itemId];
+          if (item) {
+            dialogs.push({
+              text: `獲得：${item.name}\n\n${item.description}`,
+              type: 'item',
+            });
+          }
+        });
+        
+        // 添加事件對話（旁白/系統）
+        dialogEffects.forEach((effect: any) => {
+          if (effect.dialog) {
+            dialogs.push(effect.dialog);
+          }
+        });
+        
+        // 使用對話隊列顯示
+        if (dialogs.length > 0) {
+          addDialogsToQueue(dialogs);
+        }
+        
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+
+    // 如果沒有特殊處理，顯示 hotspot 提示
+    const hotspot = scene.hotspots.find(h => h.id === hotspotId);
+    if (hotspot?.hint) {
+      setCurrentDialog({
+        text: hotspot.hint || hotspot.description || '',
+        type: 'narrator',
+      });
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [scene, handleItemCollection]); // engine 來自 useRef，不需要在依賴中
 
   const handleItemClick = useCallback((itemId: string) => {
     if (!engineRef.current) return;
@@ -1508,6 +1311,19 @@ export default function PlayPage() {
       const result = engine.triggerEvent('read_id_back');
       if (result?.dialog) {
         setCurrentDialog(result.dialog);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+    }
+    
+    // 第五空間特殊處理：座標（顯示座標位置）
+    if (itemId === 'coordinates') {
+      const item = items[itemId];
+      if (item) {
+        setCurrentDialog({
+          text: `**座標**\n\n**${item.description}**\n\n這是從拼箱排序中獲得的座標。`,
+          type: 'item',
+        });
         setRefreshKey(prev => prev + 1);
         return;
       }
@@ -1773,8 +1589,8 @@ export default function PlayPage() {
               </span>
             )}
           </button>
-          {/* 開發者模式按鈕 - 可通過設置隱藏 */}
-          {(!hideDevMode || devMode) && (
+          {/* 開發者模式按鈕 - 僅在 URL 參數 ?dev=1 時顯示 */}
+          {devMode && (
             <button
               onClick={() => setShowDeveloperPanel(!showDeveloperPanel)}
               className={`group flex items-center justify-center w-12 h-12 backdrop-blur-md border rounded-lg transition-all duration-200 shadow-lg ${
@@ -1782,7 +1598,7 @@ export default function PlayPage() {
                   ? 'bg-purple-600/30 border-purple-500 text-purple-200'
                   : 'bg-purple-600/10 border-purple-500/30 text-purple-400/50 hover:bg-purple-600/20 hover:border-purple-500/50 hover:text-purple-300'
               }`}
-              title="開發者模式 (Ctrl+D / Cmd+D)"
+              title="開發者模式 (僅在 ?dev=1 時可用)"
             >
               <Code size={22} className="transition-colors" />
             </button>
@@ -1927,6 +1743,17 @@ export default function PlayPage() {
           />
         ) : currentPuzzle.type === 'visual_selection' ? (
           <VisualSelectionPuzzle
+            puzzle={currentPuzzle}
+            onSolve={handlePuzzleSolve}
+            onClose={() => {
+              setCurrentPuzzle(null);
+              setPuzzleError('');
+            }}
+            error={puzzleError}
+            onErrorClear={() => setPuzzleError('')}
+          />
+        ) : currentPuzzle.type === 'combination_lock' ? (
+          <CombinationLock
             puzzle={currentPuzzle}
             onSolve={handlePuzzleSolve}
             onClose={() => {

@@ -57,7 +57,7 @@ export interface Dialog {
 
 export interface Puzzle {
   id: string;
-  type: 'input' | 'sequence' | 'arrangement' | 'combination' | 'visual_selection';
+  type: 'input' | 'sequence' | 'arrangement' | 'combination' | 'visual_selection' | 'combination_lock';
   solution: string | string[];
   hint?: string;
   requirements?: Requirement[];
@@ -77,6 +77,7 @@ export interface Scene {
   puzzles: Puzzle[];
   initialDialog?: Dialog;
   ambientAudio?: string;
+  hotspotEventMap?: Record<string, string>; // hotspot ID -> event ID 映射表
 }
 
 export interface Chapter {

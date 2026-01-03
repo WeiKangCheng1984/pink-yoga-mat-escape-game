@@ -5,7 +5,7 @@ export const items: Record<string, Item> = {
   // 第一空間：病房 701
   'pulse_clip': {
     id: 'pulse_clip',
-    name: '一次性指尖脈搏夾',
+    name: '指尖脈搏夾',
     description: '它不是在量你活著，是在量你值不值。',
     collectible: true,
     usable: true,
@@ -56,8 +56,8 @@ export const items: Record<string, Item> = {
   },
   'blood_number': {
     id: 'blood_number',
-    name: '血跡數字：801',
-    description: '密碼盤解鎖的瞬間，你聽到一聲輕微的「喀」。\n\n從鏡子反射中，你看到牆上模糊的塗鴉突然清晰起來——那不是塗鴉，是血跡寫成的數字：801。\n\n你突然想起：那是你被帶走前的最後一個地址。801號房。你以為那是你的家，但現在你明白了——那只是你被「登記」的地方。\n\n你的名字不是名字，是編號。你的家不是家，是倉庫。',
+    name: '血跡數字801 模糊的身分證件一張',
+    description: '密碼盤解鎖的瞬間，你聽到一聲輕微的「喀」。\n\n從鏡子反射中，你看到血跡寫成的數字：801。\n還有一張模糊的身分證件，你思考著：那是不是某人被帶走前的最後一個訊息，801號房，是什麼樣的編號。',
     collectible: true,
   },
   
@@ -65,7 +65,7 @@ export const items: Record<string, Item> = {
   'recorder': {
     id: 'recorder',
     name: '錄音筆',
-    description: '按下去的那刻，你聽見別人的良心在漏電。',
+    description: '按下去的那刻，你聽見別人的心。',
     collectible: true,
     usable: true,
   },
@@ -91,7 +91,7 @@ export const items: Record<string, Item> = {
   'termination_notice': {
     id: 'termination_notice',
     name: '實驗終止通知書',
-    description: '《實驗終止通知書》：07號，達標，進入收割排程。\n你以為終止的是實驗，終止的其實是你。',
+    description: '《實驗終止通知書》：07號，達標，進入收割排程。\n你以為終止的是實驗...',
     collectible: true,
   },
   
@@ -111,7 +111,7 @@ export const items: Record<string, Item> = {
   'rust_remover': {
     id: 'rust_remover',
     name: '除鏽劑',
-    description: '這裡連希望都被安排在盆底。',
+    description: '連希望都被安排在盆底。',
     collectible: true,
   },
   'ceramic_shard': {
@@ -131,13 +131,13 @@ export const items: Record<string, Item> = {
   'runner_bracelet': {
     id: 'runner_bracelet',
     name: '破裂的識別手環',
-    description: '你把它扯斷那刻，才第一次覺得自己有力氣。',
+    description: '你把它扯斷那刻，覺得自己非常有力氣。',
     collectible: true,
   },
   'id_card': {
     id: 'id_card',
     name: '身份證',
-    description: '你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**——你不是病人，你是被挑中的獵物。\n\n你以為自己只是醒來，原來你一直在被選中。',
+    description: '你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**，你不是病人，你是被挑中的獵物。\n\n你以為自己只是醒來，原來你是被選中。',
     collectible: true,
     usable: true,
   },
@@ -175,7 +175,7 @@ export const scenes: Record<string, Scene> = {
     id: 'ch1_sc1',
     chapterId: 'ch1',
     name: '病房 701',
-    description: '你睜眼的第一秒不是光，而是白到刺痛的牆。',
+    description: '你睜眼的那刻不是光，而是白到刺痛的牆。',
     background: '/images/bg_ch1_sc1_v1.png',
     hotspots: [
       {
@@ -183,7 +183,7 @@ export const scenes: Record<string, Scene> = {
         shape: 'rect',
         coords: [0.055, 0.5825, 0.145, 0.7175],
         description: '床',
-        hint: '床單被折得太平整，像從沒有人躺過。',
+        hint: '床單被折得很平整。',
       },
       {
         id: 'bed_tag_spot',
@@ -249,19 +249,24 @@ export const scenes: Record<string, Scene> = {
       items.rusty_hairpin,
       items.bloody_key,
     ],
+    hotspotEventMap: {
+      'pulse_clip_spot': 'pickup_pulse_clip',
+      'yoga_mat_spot': 'pickup_yoga_mat',
+    },
     events: [
       {
         id: 'pickup_pulse_clip',
         name: '拿起脈搏夾',
         description: '當你拿起脈搏夾時，廣播響起。',
         requirements: [
-          { type: 'hasItem', itemId: 'pulse_clip' },
+          { type: 'hasInteracted', hotspotId: 'pulse_clip_spot' },
         ],
         effects: [
+          { type: 'addItem', itemId: 'pulse_clip' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：一次性指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
+              text: '獲得：指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
               type: 'item',
             },
           },
@@ -286,19 +291,27 @@ export const scenes: Record<string, Scene> = {
         oneTime: true,
       },
       {
-        id: 'examine_yoga_mat',
-        name: '檢查瑜珈墊',
-        description: '你在瑜珈墊中發現生鏽髮夾。',
+        id: 'pickup_yoga_mat',
+        name: '獲得瑜珈墊',
+        description: '你收集了粉紅瑜珈墊，並在其中發現生鏽髮夾。',
         requirements: [
-          { type: 'hasItem', itemId: 'yoga_mat' },
+          { type: 'hasInteracted', hotspotId: 'yoga_mat_spot' },
         ],
         effects: [
+          { type: 'addItem', itemId: 'yoga_mat' },
           { type: 'addItem', itemId: 'rusty_hairpin' },
           {
             type: 'showDialog',
             dialog: {
-              text: '你把墊子攤開，粉紅色像某種過於樂觀的謊。太乾淨了，乾淨得像被反覆擦拭。\n\n捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
-              type: 'narrator',
+              text: '獲得：粉紅瑜珈墊\n\n太乾淨了，乾淨得像被反覆擦拭。',
+              type: 'item',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你把墊子攤開，粉紅色像某種過於樂觀的謊。捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n獲得：生鏽髮夾\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
+              type: 'item',
             },
           },
         ],
@@ -339,7 +352,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你用生鏽髮夾撬開抽屜。金屬摩擦的聲音像指甲刮過黑板，但更糟——那是你骨頭深處的記憶。\n\n抽屜打開那瞬間，先不是物品映入眼簾，而是一股陳舊的鐵鏽味——和你嘴裡的血腥同一種語言。\n\n裡面躺著一把小鑰匙，上面有薄薄的血跡，像被人用酒精擦過一次。',
+              text: '你用生鏽髮夾撬開抽屜。金屬摩擦的聲音像指甲刮過黑板，但更糟，那是你骨頭深處的記憶。\n\n抽屜打開那瞬間，先不是物品映入眼簾，而是一股陳舊的鐵鏽味——和你嘴裡的血腥同一種語言。\n\n裡面躺著一把小鑰匙，上面有薄薄的血跡，像被人用酒精擦過一次。',
               type: 'narrator',
             },
           },
@@ -370,7 +383,7 @@ export const scenes: Record<string, Scene> = {
     puzzles: [
       {
         id: 'door_code',
-        type: 'input',
+        type: 'combination_lock',
         solution: '12080',
         hint: '你的體能狀況很好吧？',
         onSolve: [
@@ -386,7 +399,7 @@ export const scenes: Record<string, Scene> = {
       },
     ],
     initialDialog: {
-      text: '你睜眼的第一秒不是光，而是白到刺痛的牆。\n\n鼻腔裡全是消毒水的「乾淨」——乾淨得像要把你這個人擦掉。床單被折得太平整，像從沒有人躺過；但你的肩胛骨卻記得某種長期被束縛的痠。\n\n牆上那張破損的「病人守則」被撕走一角，像有人故意不讓你看到完整規則。\n\n你試著移動，發現自己還能動。但這裡的每一寸空氣都在告訴你：你不是病人，你是被編號的價值。',
+      text: '你睜眼的那刻不是光，而是白到刺痛的牆。\n\n鼻腔裡全是消毒水的「乾淨」，乾淨得像要把你這個人擦掉。床單被折得很平整，你的肩胛骨卻記得某種長期被束縛的痠。\n\n牆上那張破損的「病人守則」被撕走一角，像有人故意不讓你看到完整規則。\n\n你試著移動，發現自己還能動。但這裡的每一寸空氣都在告訴你：你不是病人。',
       type: 'narrator',
     },
   },
@@ -460,6 +473,10 @@ export const scenes: Record<string, Scene> = {
       items.note,
       items.blood_number,
     ],
+    hotspotEventMap: {
+      'mirror_shard_spot': 'pickup_mirror_shard',
+      'duty_schedule': 'read_duty_schedule',
+    },
     events: [
       {
         id: 'pickup_mirror_shard',
@@ -572,7 +589,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：血跡數字：801\n\n密碼盤解鎖的瞬間，你聽到一聲輕微的「喀」。\n\n從鏡子反射中，你看到牆上模糊的塗鴉突然清晰起來——那不是塗鴉，是血跡寫成的數字：801。\n\n你突然想起：那是你被帶走前的最後一個地址。801號房。你以為那是你的家，但現在你明白了——那只是你被「登記」的地方。\n\n你的名字不是名字，是編號。你的家不是家，是倉庫。',
+              text: '獲得：血跡數字801 模糊的身分證件一張\n\n密碼盤解鎖的瞬間，你聽到一聲輕微的「喀」。\n\n從鏡子反射中，你看到血跡寫成的數字：801。\n還有一張模糊的身分證件，你思考著：那是不是某人被帶走前的最後一個訊息，801號房，是什麼樣的編號。',
               type: 'item',
             },
           },
@@ -618,7 +635,7 @@ export const scenes: Record<string, Scene> = {
         shape: 'rect',
         coords: [0.04125, 0.8275, 0.10875, 0.8725],
         description: '錄音筆',
-        hint: '按下去的那刻，你聽見別人的良心在漏電。',
+        hint: '按下去的那刻，你聽見別人的心。',
       },
       {
         id: 'pillow',
@@ -684,6 +701,12 @@ export const scenes: Record<string, Scene> = {
       items.door_handle,
       items.termination_notice,
     ],
+    hotspotEventMap: {
+      'recorder_spot': 'pickup_recorder',
+      'pillow': 'pickup_diary',
+      'bedside_table': 'pickup_consent_form',
+      'sofa_gap': 'find_handle',
+    },
     events: [
       {
         id: 'pickup_recorder',
@@ -697,7 +720,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：錄音筆\n\n按下去的那刻，你聽見別人的良心在漏電。',
+              text: '獲得：錄音筆\n\n按下去的那刻，你聽見別人的心。',
               type: 'item',
             },
           },
@@ -812,7 +835,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '衣櫃門像被彈簧推開，假人穿粉紅瑜珈服，動作僵硬地做著「下犬式」，但頭部角度不可能。\n\n它手上那張紙寫著：\n**《實驗終止通知書》：07號，達標，進入收割排程。**\n\n獲得：實驗終止通知書\n\n你以為終止的是實驗，終止的其實是你。',
+              text: '衣櫃門像被彈簧推開，假人穿粉紅瑜珈服，動作僵硬地做著「下犬式」。\n\n它手上那張紙寫著：\n**《實驗終止通知書》：07號，達標，進入收割排程。**\n\n獲得：實驗終止通知書\n\n你以為終止的是實驗...',
               type: 'item',
             },
           },
@@ -873,7 +896,7 @@ export const scenes: Record<string, Scene> = {
     id: 'ch1_sc4',
     chapterId: 'ch1',
     name: '702 陽台',
-    description: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。你往下看，城市沒有燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
+    description: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。你往下看，城市似乎有些燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
     background: '/images/bg_ch1_sc4_v1.png',
     hotspots: [
       {
@@ -939,6 +962,11 @@ export const scenes: Record<string, Scene> = {
       items.rust_remover,
       items.ceramic_shard,
     ],
+    hotspotEventMap: {
+      'plant': 'pickup_rust_remover',
+      'restraints': 'pickup_restraints',
+      'pain_patch_spot': 'pickup_pain_patch',
+    },
     events: [
       {
         id: 'pickup_rust_remover',
@@ -952,7 +980,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：除鏽劑\n\n盆栽土壤不是土，是像被焚過的粉末。你把盆移開，底下那瓶除鏽劑像是早就為你放好。\n\n這裡連希望都被安排在盆底。',
+              text: '獲得：除鏽劑\n\n盆栽土壤不是土，是像被焚過的粉末。你把盆移開，底下那瓶除鏽劑像是早就為你放好。\n\n連希望都被安排在盆底。',
               type: 'item',
             },
           },
@@ -1083,37 +1111,37 @@ export const scenes: Record<string, Scene> = {
           {
             id: 'fixed_point_1',
             label: '固定點 1',
-            description: '代號：FP-001\n亂碼：##@$%^&*()',
+            description: '代號：FP-001\n##@$%^&()',
           },
           {
             id: 'fixed_point_2',
             label: '固定點 2',
-            description: '代號：FP-002\n亂碼：07-T@#$%^&*',
+            description: '代號：FP-002\n07-T@#$%^&*',
           },
           {
             id: 'fixed_point_3',
             label: '固定點 3',
-            description: '代號：FP-003\n亂碼：07-R#@$%^&*',
+            description: '代號：FP-003\n07-R#@$%^&*',
           },
           {
             id: 'fixed_point_4',
             label: '固定點 4',
-            description: '代號：FP-004\n亂碼：05-R@#$%^&',
+            description: '代號：FP-004\n05-R@#$%^&',
           },
           {
             id: 'fixed_point_5',
             label: '固定點 5',
-            description: '代號：FP-005\n亂碼：07@#$%^&*()',
+            description: '代號：FP-005\n07@#$%^&()',
           },
           {
             id: 'fixed_point_6',
             label: '固定點 6',
-            description: '代號：FP-006\n亂碼：07-R@#$%^&',
+            description: '代號：FP-006\n07-R@#$%^&',
           },
           {
             id: 'fixed_point_7',
             label: '固定點 7',
-            description: '代號：FP-007\n亂碼：R@#$%^&*()',
+            description: '代號：FP-007\nR@#$%^&()',
           },
         ],
         onSolve: [
@@ -1127,7 +1155,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你抓住繩索，開始往下垂降。風很大，吹得你眼睛發乾。\n\n你往下看，城市沒有燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
+              text: '你抓住繩索，開始往下垂降。風很大，吹得你眼睛發乾。\n\n你往下看，城市似乎有些燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
               type: 'narrator',
             },
           },
@@ -1146,7 +1174,7 @@ export const scenes: Record<string, Scene> = {
       },
     ],
     initialDialog: {
-      text: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。\n\n你往下看，城市沒有燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
+      text: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽，更像被某種化學藥劑刻意催熟。\n\n你往下看，城市似乎有些燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
       type: 'narrator',
     },
   },
@@ -1155,7 +1183,7 @@ export const scenes: Record<string, Scene> = {
     id: 'ch1_sc5',
     chapterId: 'ch1',
     name: '二樓露台',
-    description: '露台堆滿廢棄醫療器材箱，像一個被清空的戰場。你以為這裡會更自由，但空氣更重——因為你終於靠近「存貨區」。地上有拖行痕，像箱子不是被搬運，是被拉走；有些箱角撞裂，露出內層保麗龍——乾淨得像骨髓。',
+    description: '露台堆滿廢棄醫療器材箱，像一個被清空的戰場。你以為這裡會更自由，但空氣更重，因為你終於靠近「存貨區」。地上有拖行痕，像箱子不是被搬運，是被拉走；有些箱角撞裂，露出內層保麗龍，乾淨得像骨頭。',
     background: '/images/bg_ch1_sc5_v1.png',
     hotspots: [
       {
@@ -1234,6 +1262,11 @@ export const scenes: Record<string, Scene> = {
       items.runner_bracelet,
       items.id_card,
     ],
+    hotspotEventMap: {
+      'cold_label_spot': 'pickup_cold_label',
+      'bracelet_spot': 'pickup_bracelet',
+      'heart_box': 'find_id_card',
+    },
     events: [
       {
         id: 'pickup_cold_label',
@@ -1282,7 +1315,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你把它扯斷那刻，才第一次覺得自己有力氣。\n\n你想起第一空間的「701-07」，身份終於完成扣合。',
+              text: '你把它扯斷那刻，覺得自己非常有力氣。\n\n你想起第一空間的「701-07」，身份終於完成扣合。',
               type: 'narrator',
             },
           },
@@ -1304,14 +1337,14 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：身份證\n\n你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**——你不是病人，你是被挑中的獵物。',
+              text: '獲得：身份證\n\n你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**，你不是病人，你是被挑中的獵物。',
               type: 'item',
             },
           },
           {
             type: 'showDialog',
             dialog: {
-              text: '你以為自己只是醒來，原來你一直在被選中。',
+              text: '你以為自己只是醒來，原來你是被選中。',
               type: 'narrator',
             },
           },
@@ -1364,12 +1397,8 @@ export const scenes: Record<string, Scene> = {
       },
       {
         id: 'final_exit',
-        type: 'input',
-        solution: 'N24.1234, E120.5678',
-        hint: '輸入身份證背面的座標，或拼箱排序後獲得的座標。',
-        requirements: [
-          { type: 'hasFlag', flag: 'final_password_revealed', value: true },
-        ],
+        type: 'combination_lock',
+        solution: '24120',
         onSolve: [
           {
             type: 'showDialog',
@@ -1381,14 +1410,14 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你低頭看手裡的粉紅瑜珈墊——它的內層其實有一道**壓紋暗線**，用 UV 燈照會顯出簡化地圖與標記：\n\n* 一個像「手術刀」的符號\n* 一個像「電塔」的符號\n* 一個寫著「回收點」的圈\n\n你終於懂了：這不是瑜珈墊，這是「逃亡者教材」。\n有人在更早之前就失敗過；而你，是下一個版本。',
+              text: '你低頭看手裡的粉紅瑜珈墊——它的內層其實有一道**壓紋暗線**，用 UV 燈照會顯出簡化地圖與標記：\n\n* 一個像「手術刀」的符號\n* 一個像「電塔」的符號\n* 一個寫著「回收點」的圈\n\n你終於懂了：這不是瑜珈墊，這是「逃亡教材」。\n有人在更早之前就失敗過；而你，是下一個版本。',
               type: 'narrator',
             },
           },
           {
             type: 'showDialog',
             dialog: {
-              text: '你在地上發現了一張被風吹來的紙。紙張很新，像剛從某個文件夾裡掉出來。',
+              text: '你發現了一張紙。紙張很新，像剛從某個文件夾裡掉出來。',
               type: 'narrator',
             },
           },
@@ -1446,7 +1475,7 @@ export const scenes: Record<string, Scene> = {
       },
     ],
     initialDialog: {
-      text: '露台堆滿廢棄醫療器材箱，像一個被清空的戰場。你以為這裡會更自由，但空氣更重——因為你終於靠近「存貨區」。\n\n地上有拖行痕，像箱子不是被搬運，是被拉走；有些箱角撞裂，露出內層保麗龍——乾淨得像骨髓。',
+      text: '露台堆滿廢棄醫療器材箱，像一個被清空的戰場。你以為這裡會更自由，但空氣更重，因為你終於靠近「存貨區」。\n\n地上有拖行痕，像箱子不是被搬運，是被拉走；有些箱角撞裂，露出內層保麗龍，乾淨得像骨頭。',
       type: 'narrator',
     },
   },
