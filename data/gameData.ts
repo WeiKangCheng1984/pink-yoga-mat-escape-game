@@ -107,7 +107,6 @@ export const items: Record<string, Item> = {
     name: '裂開的止痛貼片盒',
     description: '有人在幫你，也有人在「管理」你的痛。',
     collectible: true,
-    usable: true,
   },
   'rust_remover': {
     id: 'rust_remover',
@@ -126,7 +125,7 @@ export const items: Record<string, Item> = {
   'cold_chain_label': {
     id: 'cold_chain_label',
     name: '冷鏈運輸標籤',
-    description: 'TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL\n\n原來你要去的地方不是出口，是下一站。\n這不是逃生路線，是物流路線。',
+    description: 'TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL',
     collectible: true,
   },
   'runner_bracelet': {
@@ -138,9 +137,15 @@ export const items: Record<string, Item> = {
   'id_card': {
     id: 'id_card',
     name: '身份證',
-    description: '你以為自己只是醒來，原來你一直在被選中。',
+    description: '你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**——你不是病人，你是被挑中的獵物。\n\n你以為自己只是醒來，原來你一直在被選中。',
     collectible: true,
     usable: true,
+  },
+  'coordinates': {
+    id: 'coordinates',
+    name: '座標',
+    description: 'N24.1234, E120.5678',
+    collectible: true,
   },
 };
 
@@ -256,9 +261,13 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你拿起脈搏夾，塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
-              type: 'narrator',
+              text: '獲得：一次性指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
+              type: 'item',
             },
+          },
+          {
+            type: 'showDialog',
+            dialog: broadcasts.first,
           },
         ],
         oneTime: true,
@@ -964,8 +973,15 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你將除鏽劑倒在工具箱的鎖扣上，鏽蝕的卡榫發出「喀」的一聲，鬆開了。\n\n獲得：陶瓷破片\n\n陶瓷破片邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。\n\n你仔細觀察破片邊緣，發現刻著細小的字：**R=REINFORCED, T=TEMPORARY**',
-              type: 'item',
+              text: '你將除鏽劑倒在工具箱的鎖扣上，鏽蝕的卡榫發出「喀」的一聲，鬆開了。',
+              type: 'narrator',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '陶瓷破片邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。\n\n你仔細觀察破片邊緣，發現刻著細小的字：**R=REINFORCED, T=TEMPORARY**',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'toolbox_opened', value: true },
@@ -1004,8 +1020,8 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：裂開的止痛貼片盒\n\n有人在幫你，也有人在「管理」你的痛。\n\n你翻轉其中一片，背面藏著小字：\n**「二樓露台，箱子先肺後肝。」**',
-              type: 'item',
+              text: '你翻轉其中一片，背面藏著小字：\n**「二樓露台，箱子先肺後肝。」**',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'pain_patch_found', value: true },
@@ -1058,7 +1074,6 @@ export const scenes: Record<string, Scene> = {
         id: 'descend',
         type: 'visual_selection',
         solution: ['fixed_point_3', 'fixed_point_6', 'fixed_point_7'],
-        hint: '欄杆上有 7 個固定點，但單一固定點無法承受你的體重。你需要選擇多個固定點，形成穩定的「支撐系統」。',
         requirements: [
           { type: 'hasItem', itemId: 'blank_nameplate' },
           { type: 'hasItem', itemId: 'ceramic_shard' },
@@ -1127,7 +1142,6 @@ export const scenes: Record<string, Scene> = {
             type: 'showDialog',
             dialog: broadcasts.fourth,
           },
-          { type: 'changeScene', chapterId: 'ch1', sceneId: 'ch1_sc5' },
         ],
       },
     ],
@@ -1147,70 +1161,70 @@ export const scenes: Record<string, Scene> = {
       {
         id: 'cold_label_spot',
         shape: 'rect',
-        coords: [0.095, 0.13375, 0.205, 0.21625],
+        coords: [0.106, 0.642, 0.194, 0.708],
         description: '冷鏈運輸標籤',
         hint: '標籤貼在箱側，上面有日期和溫度。',
       },
       {
         id: 'bracelet_spot',
         shape: 'rect',
-        coords: [0.345, 0.13375, 0.455, 0.21625],
+        coords: [0.456, 0.792, 0.544, 0.858],
         description: '破裂的識別手環',
         hint: '手環掉在地上，已經破裂。',
       },
       {
         id: 'boxes_area',
         shape: 'rect',
-        coords: [0.28, 0.35625, 0.72, 0.49375],
+        coords: [0.13, 0.703, 0.27, 0.747],
         description: '醫療器材箱',
         hint: '四個箱子需要按照優先級排序。',
       },
       {
         id: 'heart_box',
         shape: 'rect',
-        coords: [0.145, 0.345, 0.255, 0.455],
+        coords: [0.764, 0.868, 0.852, 0.964],
         description: '心臟箱',
         hint: '心先走，因為最值錢。',
       },
       {
         id: 'lung_box',
         shape: 'rect',
-        coords: [0.345, 0.345, 0.455, 0.455],
+        coords: [0.576, 0.868, 0.664, 0.964],
         description: '肺箱',
         hint: '肺要看吸菸史。',
       },
       {
         id: 'liver_box',
         shape: 'rect',
-        coords: [0.545, 0.345, 0.655, 0.455],
+        coords: [0.596, 0.756, 0.684, 0.844],
         description: '肝箱',
         hint: '肝要看酒精。',
       },
       {
         id: 'kidney_box',
         shape: 'rect',
-        coords: [0.745, 0.345, 0.855, 0.455],
+        coords: [0.756, 0.756, 0.844, 0.844],
         description: '腎箱',
         hint: '腎看年紀。',
       },
       {
         id: 'exit',
         shape: 'rect',
-        coords: [0.445, 0.645, 0.555, 0.755],
+        coords: [0.456, 0.256, 0.544, 0.344],
         description: '逃生口',
         hint: '需要座標才能打開。',
       },
       {
         id: 'foam_code',
         shape: 'rect',
-        coords: [0.1725, 0.3725, 0.2275, 0.4275],
+        coords: [0.578, 0.522, 0.622, 0.566],
         description: '箱角保麗龍的壓印碼',
         hint: '07-A / 07-B / 07-C（或只剩半截）',
       },
       {
         id: 'tape_label',
         shape: 'rect',
-        coords: [0.7725, 0.3725, 0.8275, 0.4275],
+        coords: [0.778, 0.378, 0.822, 0.422],
         description: '封箱膠帶上的標語',
         hint: 'HANDLE WITH CARE',
       },
@@ -1227,14 +1241,22 @@ export const scenes: Record<string, Scene> = {
         description: '查看運輸標籤。',
         requirements: [
           { type: 'hasInteracted', hotspotId: 'cold_label_spot' },
+          { type: 'custom', customCheck: (state) => !state.inventory.includes('cold_chain_label') },
         ],
         effects: [
           { type: 'addItem', itemId: 'cold_chain_label' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：冷鏈運輸標籤\n\n**「TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL」**\n\n原來你要去的地方不是出口，是下一站。\n\n這不是逃生路線，是物流路線。',
+              text: '獲得：冷鏈運輸標籤\n\n**「TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL」**',
               type: 'item',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '原來你要去的地方不是出口，是下一站。\n\n這不是逃生路線，是物流路線。',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'label_read', value: true },
@@ -1253,8 +1275,15 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：破裂的識別手環\n\n手環上寫著：**Runner / 07**\n\n你把它扯斷那刻，才第一次覺得自己有力氣。\n\n你想起第一空間的「701-07」，身份終於完成扣合。',
+              text: '獲得：破裂的識別手環\n\n手環上寫著：**Runner / 07**',
               type: 'item',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你把它扯斷那刻，才第一次覺得自己有力氣。\n\n你想起第一空間的「701-07」，身份終於完成扣合。',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'bracelet_found', value: true },
@@ -1268,14 +1297,22 @@ export const scenes: Record<string, Scene> = {
         requirements: [
           { type: 'hasInteracted', hotspotId: 'heart_box' },
           { type: 'hasFlag', flag: 'boxes_arranged', value: true },
+          { type: 'custom', customCheck: (state) => !state.inventory.includes('id_card') },
         ],
         effects: [
           { type: 'addItem', itemId: 'id_card' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：身份證\n\n你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**——你不是病人，你是被挑中的獵物。\n\n你以為自己只是醒來，原來你一直在被選中。',
+              text: '獲得：身份證\n\n你打開心臟箱，裡面除了保冷設備，還有一張身份證。\n\n你看到照片是自己，那一瞬間不是震驚，是荒謬：\n**「國家特種部隊教官」**——你不是病人，你是被挑中的獵物。',
               type: 'item',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你以為自己只是醒來，原來你一直在被選中。',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'id_card_found', value: true },
@@ -1307,12 +1344,13 @@ export const scenes: Record<string, Scene> = {
         id: 'box_arrangement',
         type: 'arrangement',
         solution: ['心', '肺', '肝', '腎'],
-        hint: '根據收割優先級排序：心臟最值錢，優先運送；肺臟需要檢查吸菸史；肝臟需要檢查酒精；腎臟看年紀。\n\n止痛貼片盒上的線索提示：「先肺後肝」。\n\n請依序點選器官，按照優先級從高到低排列。',
+        hint: '箱側標記模糊，需要仔細辨認。',
         requirements: [
           { type: 'hasFlag', flag: 'label_read', value: true },
           { type: 'hasFlag', flag: 'pain_patch_found', value: true },
         ],
         onSolve: [
+          { type: 'addItem', itemId: 'coordinates' },
           {
             type: 'showDialog',
             dialog: {
@@ -1394,6 +1432,13 @@ export const scenes: Record<string, Scene> = {
             dialog: {
               text: '**「你奔跑，不是為了活著。」**\n**「你奔跑，是為了把自己從『貨』變回『人』。」**',
               type: 'narrator',
+            },
+          },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**遊戲結束**\n\n感謝你的遊玩。',
+              type: 'system',
             },
           },
           { type: 'setFlag', flag: 'game_completed', value: true },

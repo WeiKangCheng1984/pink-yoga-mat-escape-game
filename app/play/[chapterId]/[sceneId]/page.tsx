@@ -48,6 +48,7 @@ export default function PlayPage() {
 
   // 定義所有 state，確保在 useEffect 之前
   const [currentDialog, setCurrentDialog] = useState<Dialog | null>(null);
+  const [dialogQueue, setDialogQueue] = useState<Dialog[]>([]);
   const [currentPuzzle, setCurrentPuzzle] = useState<any>(null);
   const [puzzleError, setPuzzleError] = useState<string>('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -56,12 +57,122 @@ export default function PlayPage() {
   const [showUVLight, setShowUVLight] = useState(false);
   const [interactionCount, setInteractionCount] = useState(0);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [showGameEnd, setShowGameEnd] = useState(false);
   const [showSceneSelector, setShowSceneSelector] = useState(false);
   const [showDoor702Confirm, setShowDoor702Confirm] = useState(false);
   const [showDoor701Confirm, setShowDoor701Confirm] = useState(false);
   const [showWindow702Confirm, setShowWindow702Confirm] = useState(false);
+  const [showDescendConfirm, setShowDescendConfirm] = useState(false);
+  const gameEndShownRef = useRef(false);
   const [showDeveloperPanel, setShowDeveloperPanel] = useState(false);
   const sceneViewRef = useRef<SceneViewRef>(null);
+  const isDescendPuzzleCompleteRef = useRef(false);
+
+  // 處理對話關閉：如果有隊列，顯示下一個對話
+  const handleDialogClose = useCallback(() => {
+    setCurrentDialog(null);
+    // 檢查是否有待顯示的對話
+    setDialogQueue(prev => {
+      if (prev.length > 0) {
+        const nextDialog = prev[0];
+        // 使用 setTimeout 確保當前對話完全關閉後再顯示下一個
+        setTimeout(() => {
+          // 檢查是否為廣播類型，需要特殊處理
+          if (nextDialog.type === 'broadcast') {
+            // 播放廣播音效
+            audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
+            // 觸發劇烈閃爍
+            if (sceneViewRef.current) {
+              sceneViewRef.current.triggerFlicker('intense');
+              setTimeout(() => {
+                sceneViewRef.current?.triggerFlicker('strong');
+              }, 200);
+              setTimeout(() => {
+                sceneViewRef.current?.triggerFlicker('intense');
+              }, 400);
+            }
+            // 顯示廣播對話
+            setCurrentDialog(nextDialog);
+          } else {
+            setCurrentDialog(nextDialog);
+          }
+        }, 100);
+        return prev.slice(1);
+      } else {
+        // 對話隊列為空，檢查是否需要顯示確認對話框或遊戲結束畫面
+        // 檢查遊戲是否完成（且尚未顯示過結束畫面）
+        if (engineRef.current && !gameEndShownRef.current) {
+          const state = engineRef.current.getState();
+          if (state.flags.game_completed) {
+            // 標記已顯示，防止重複觸發
+            gameEndShownRef.current = true;
+            // 使用一個短暫延遲確保對話完全關閉
+            setTimeout(() => {
+              setShowGameEnd(true);
+            }, 300);
+            return prev;
+          }
+        }
+        // 檢查是否正在處理垂降謎題的對話隊列
+        if (isDescendPuzzleCompleteRef.current) {
+          isDescendPuzzleCompleteRef.current = false;
+          // 使用一個短暫延遲確保對話完全關閉
+          setTimeout(() => {
+            setShowDescendConfirm(true);
+          }, 300);
+        }
+        return prev;
+      }
+    });
+  }, []);
+
+  // 添加對話到隊列
+  const addDialogsToQueue = useCallback((dialogs: Dialog[]) => {
+    if (dialogs.length === 0) return;
+    
+    // 使用函數式更新來避免閉包問題
+    setCurrentDialog(current => {
+      if (!current) {
+        // 如果當前沒有對話，直接顯示第一個，其餘加入隊列
+        const firstDialog = dialogs[0];
+        // 檢查是否為廣播類型，需要特殊處理
+        if (firstDialog.type === 'broadcast') {
+          // 播放廣播音效
+          audioManager.playSFX('/audio/broadcast/broadcast_static.mp3', 0.7);
+          // 觸發劇烈閃爍
+          if (sceneViewRef.current) {
+            sceneViewRef.current.triggerFlicker('intense');
+            setTimeout(() => {
+              sceneViewRef.current?.triggerFlicker('strong');
+            }, 200);
+            setTimeout(() => {
+              sceneViewRef.current?.triggerFlicker('intense');
+            }, 400);
+          }
+          // 廣播對話需要特殊處理，先返回 null，然後在 setTimeout 中設置
+          setTimeout(() => {
+            setCurrentDialog(firstDialog);
+            if (dialogs.length > 1) {
+              setDialogQueue(dialogs.slice(1));
+            }
+          }, 0);
+          return null;
+        } else {
+          // 使用 setTimeout 確保狀態更新順序正確
+          setTimeout(() => {
+            if (dialogs.length > 1) {
+              setDialogQueue(dialogs.slice(1));
+            }
+          }, 0);
+          return firstDialog;
+        }
+      } else {
+        // 如果當前有對話，將所有新對話加入隊列
+        setDialogQueue(prev => [...prev, ...dialogs]);
+        return current;
+      }
+    });
+  }, []);
 
   // 開發者模式快捷鍵（Ctrl+D 或 Cmd+D）
   useEffect(() => {
@@ -102,6 +213,10 @@ export default function PlayPage() {
     if (!engineRef.current) return;
     const engine = engineRef.current;
     const state = engine.getState();
+    
+    // 場景切換時清空對話隊列
+    setCurrentDialog(null);
+    setDialogQueue([]);
     
     // 確保當前場景被添加到 visitedScenes
     if (!state.visitedScenes.includes(sceneId)) {
@@ -366,15 +481,21 @@ export default function PlayPage() {
         if (sceneViewRef.current) {
           sceneViewRef.current.triggerFlicker('light');
         }
-        // 收集脈搏夾
+        // 先添加道具，這樣事件才能觸發
         engine.applyEffect({ type: 'addItem', itemId: 'pulse_clip' });
-        // 合併道具說明和事件對話
-        setCurrentDialog({
-          text: '獲得：一次性指尖脈搏夾\n\n塑膠外殼有乾掉的白色粉末；夾口內側黏著一根短毛。\n\n它不是在量你活著，是在量你值不值。',
-          type: 'item',
-        });
-        // 標記事件已觸發（避免重複觸發）
-        engine.addInteraction('pickup_pulse_clip');
+        // 標記 hotspot 已互動（這樣 interactWithHotspot 才能觸發事件）
+        engine.addInteraction(hotspotId);
+        // 觸發 pickup_pulse_clip 事件（會顯示道具描述和廣播）
+        const result = engine.triggerEvent('pickup_pulse_clip');
+        if (result) {
+          // 獲取所有對話效果
+          const dialogEffects = result.effects?.filter((e: any) => e.type === 'showDialog') || [];
+          if (dialogEffects.length > 0) {
+            // 使用對話隊列顯示所有對話（道具描述 + 廣播）
+            const dialogs: Dialog[] = dialogEffects.map((e: any) => e.dialog).filter(Boolean);
+            addDialogsToQueue(dialogs);
+          }
+        }
         setRefreshKey(prev => prev + 1);
         return;
       } else {
@@ -881,7 +1002,7 @@ export default function PlayPage() {
       // 檢查是否已觸發跳嚇（激活監控的前置條件）
       if (!state.flags.jump_scare_triggered) {
         setCurrentDialog({
-          text: '監控螢幕是黑的。也許你應該先探索房間的其他地方。',
+          text: '監控螢幕突然亮起。也許你應該先探索房間的其他地方。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1017,16 +1138,25 @@ export default function PlayPage() {
       return;
     }
 
-    // 第四空間特殊處理：垂降點（觸發垂降謎題）
+    // 第四空間特殊處理：垂降點（觸發垂降謎題或顯示確認對話框）
     if (hotspotId === 'descend_point' && scene?.id === 'ch1_sc4') {
+      // 檢查謎題是否已經解決過
+      if (engine.hasFlag('puzzle_descend_solved')) {
+        // 謎題已解決，直接顯示確認對話框
+        setShowDescendConfirm(true);
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
+      
       const state = engine.getState();
+      
       // 檢查是否有必要的道具
       const hasRequiredItems = state.inventory.includes('blank_nameplate') && 
                                state.inventory.includes('ceramic_shard') && 
                                state.inventory.includes('rust_remover');
       if (!hasRequiredItems) {
         setCurrentDialog({
-          text: '你需要收集必要的線索才能判斷哪些固定點是安全的。檢查你收集的道具：醫療束縛帶上的病患名牌、陶瓷破片、除鏽劑。',
+          text: '固定點需要線索才能判斷。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1043,25 +1173,58 @@ export default function PlayPage() {
     // 第五空間特殊處理：箱子區域（觸發拼箱排序謎題）
     if (hotspotId === 'boxes_area' && scene?.id === 'ch1_sc5') {
       const state = engine.getState();
-      if (!state.flags.label_read || !state.flags.pain_patch_found) {
+      // 如果謎題已經解決，顯示提示
+      if (state.flags.boxes_arranged) {
         setCurrentDialog({
-          text: '你需要先了解這些箱子的用途和排序規則。',
+          text: '箱子已經按照優先級排列好了。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
         return;
       }
+      // 先記錄互動，這樣後續檢查才能通過
+      engine.addInteraction('boxes_area');
       const boxPuzzle = scene.puzzles.find(p => p.id === 'box_arrangement');
       if (boxPuzzle) {
-        setCurrentPuzzle(boxPuzzle);
-        setRefreshKey(prev => prev + 1);
-        return;
+        // 檢查謎題需求
+        const requirementsMet = engine.checkPuzzleRequirements(boxPuzzle);
+        if (requirementsMet) {
+          setCurrentPuzzle(boxPuzzle);
+          setRefreshKey(prev => prev + 1);
+          return;
+        } else {
+          // 提供更詳細的提示
+          const missingRequirements: string[] = [];
+          if (!state.flags.label_read) {
+            missingRequirements.push('查看冷鏈運輸標籤');
+          }
+          if (!state.flags.pain_patch_found) {
+            missingRequirements.push('查看止痛貼片盒');
+          }
+          setCurrentDialog({
+            text: missingRequirements.length > 0 
+              ? `你需要先${missingRequirements.join('和')}，才能了解這些箱子的用途和排序規則。`
+              : '你需要先了解這些箱子的用途和排序規則。',
+            type: 'narrator',
+          });
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
       }
     }
 
     // 第五空間特殊處理：心臟箱（需要先完成排序）
     if (hotspotId === 'heart_box' && scene?.id === 'ch1_sc5') {
       const state = engine.getState();
+      // 如果已經獲得身份證，顯示提示
+      if (state.inventory.includes('id_card')) {
+        setCurrentDialog({
+          text: '心臟箱已經被打開，身份證已經被你取走了。',
+          type: 'narrator',
+        });
+        setRefreshKey(prev => prev + 1);
+        return;
+      }
       if (!state.flags.boxes_arranged) {
         setCurrentDialog({
           text: '你需要先按照優先級排列這些箱子。',
@@ -1071,9 +1234,14 @@ export default function PlayPage() {
         return;
       }
       // 已排序，觸發獲得身份證事件
+      engine.addInteraction('heart_box');
       const result = engine.triggerEvent('find_id_card');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
+      if (result) {
+        // 找出所有對話效果
+        const dialogEffects = result.effects.filter((e: any) => e.type === 'showDialog');
+        if (dialogEffects[0]?.dialog) {
+          setCurrentDialog(dialogEffects[0].dialog);
+        }
         setRefreshKey(prev => prev + 1);
         return;
       }
@@ -1101,8 +1269,103 @@ export default function PlayPage() {
     const result = engine.interactWithHotspot(hotspotId);
     
     if (result) {
+      // 第五空間特殊處理：腎箱、肝箱、肺箱（純提示型，不觸發事件）
+      if ((hotspotId === 'kidney_box' || hotspotId === 'liver_box' || hotspotId === 'lung_box') && scene?.id === 'ch1_sc5') {
+        const hotspot = scene.hotspots.find(h => h.id === hotspotId);
+        if (hotspot?.hint) {
+          setCurrentDialog({
+            text: hotspot.hint,
+            type: 'narrator',
+          });
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+
+
+      // 特殊處理：第四空間工具箱（分離道具獲得提示，使用對話隊列）
+      if (hotspotId === 'toolbox' && scene?.id === 'ch1_sc4') {
+        const state = engine.getState();
+        const openToolboxEvent = result.events.find((e: any) => e.eventId === 'open_toolbox');
+        // 檢查是否觸發了 open_toolbox 事件且添加了 ceramic_shard 道具
+        if (openToolboxEvent && state.inventory.includes('ceramic_shard')) {
+          const item = scene.items.find(i => i.id === 'ceramic_shard');
+          // 獲取所有對話 effects
+          const dialogEffects = openToolboxEvent.effects?.filter((e: any) => e.type === 'showDialog') || [];
+          
+          // 構建對話隊列：道具獲得提示 + 所有事件對話
+          const dialogs: Dialog[] = [];
+          
+          // 第一個對話：道具獲得提示
+          dialogs.push({
+            text: `獲得：${item?.name || '陶瓷破片'}`,
+            type: 'item',
+          });
+          
+          // 後續對話：所有事件對話
+          dialogEffects.forEach((effect: any) => {
+            if (effect.dialog) {
+              dialogs.push(effect.dialog);
+            }
+          });
+          
+          // 使用對話隊列機制顯示所有對話
+          addDialogsToQueue(dialogs);
+          
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+
+      // 第五空間特殊處理：冷鏈運輸標籤和識別手環（檢查是否已收集）
+      if ((hotspotId === 'cold_label_spot' || hotspotId === 'bracelet_spot') && scene?.id === 'ch1_sc5') {
+        const state = engine.getState();
+        // 如果已經收集，顯示提示
+        if (hotspotId === 'cold_label_spot' && state.inventory.includes('cold_chain_label')) {
+          setCurrentDialog({
+            text: '你已經收集了冷鏈運輸標籤。',
+            type: 'narrator',
+          });
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+        if (hotspotId === 'bracelet_spot' && state.inventory.includes('runner_bracelet')) {
+          setCurrentDialog({
+            text: '你已經收集了破裂的識別手環。',
+            type: 'narrator',
+          });
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+
       // 檢查是否有觸發的事件對話
       const dialogEvent = result.events.find((e: any) => e.dialog);
+      
+      // 第五空間特殊處理：道具獲得時使用對話隊列（先顯示道具描述，再顯示敘述）
+      if (result.item && scene?.id === 'ch1_sc5') {
+        const dialogs: Dialog[] = [];
+        // 第一個對話：道具描述（藍色框）
+        dialogs.push({
+          text: `獲得：${result.item.name}\n\n${result.item.description}`,
+          type: 'item',
+        });
+        // 如果有事件對話，加入隊列
+        if (dialogEvent?.dialog) {
+          if (dialogEvent.dialog.type === 'broadcast') {
+            handleBroadcast(dialogEvent.dialog);
+          } else {
+            dialogs.push(dialogEvent.dialog);
+          }
+        }
+        // 使用對話隊列機制顯示所有對話
+        if (dialogs.length > 0) {
+          addDialogsToQueue(dialogs);
+          setRefreshKey(prev => prev + 1);
+          return;
+        }
+      }
+      
       if (dialogEvent?.dialog) {
         // 如果是廣播類型的對話，使用統一的廣播處理
         if (dialogEvent.dialog.type === 'broadcast') {
@@ -1333,34 +1596,55 @@ export default function PlayPage() {
         // 檢查場景是否已改變（使用更新後的 state）
         const sceneChanged = newState.currentChapter !== chapterId || newState.currentScene !== sceneId;
         
-        // 處理多個對話效果（按順序顯示）
+        // 處理多個對話效果（使用對話隊列，讓玩家自行點選依序閱讀）
         if (dialogEffects.length > 0) {
-          // 顯示第一個對話（檢查是否為廣播類型）
-          if (dialogEffects[0]?.dialog) {
-            if (dialogEffects[0].dialog.type === 'broadcast') {
-              handleBroadcast(dialogEffects[0].dialog);
-            } else {
-              setCurrentDialog(dialogEffects[0].dialog);
+          // 第四空間特殊處理：垂降謎題完成後，使用對話隊列顯示所有對話
+          if (currentPuzzle.id === 'descend' && scene?.id === 'ch1_sc4') {
+            // 設置標記，表示正在處理垂降謎題的對話隊列
+            isDescendPuzzleCompleteRef.current = true;
+            
+            // 將所有對話（包括廣播）加入隊列
+            const dialogs: Dialog[] = [];
+            dialogEffects.forEach((effect: any) => {
+              if (effect.dialog) {
+                dialogs.push(effect.dialog);
+              }
+            });
+            
+            // 使用對話隊列機制顯示所有對話
+            addDialogsToQueue(dialogs);
+          } else if (currentPuzzle.id === 'final_exit' && scene?.id === 'ch1_sc5') {
+            // 結局特殊處理：使用對話隊列顯示所有對話，確保依序顯示
+            const dialogs: Dialog[] = [];
+            dialogEffects.forEach((effect: any) => {
+              if (effect.dialog) {
+                dialogs.push(effect.dialog);
+              }
+            });
+            // 使用對話隊列機制顯示所有對話
+            addDialogsToQueue(dialogs);
+          } else {
+            // 其他謎題：使用原有邏輯（第一個對話立即顯示，後續使用對話隊列）
+            // 顯示第一個對話（檢查是否為廣播類型）
+            if (dialogEffects[0]?.dialog) {
+              if (dialogEffects[0].dialog.type === 'broadcast') {
+                handleBroadcast(dialogEffects[0].dialog);
+              } else {
+                setCurrentDialog(dialogEffects[0].dialog);
+              }
             }
-          }
-          
-          // 如果有多個對話，延遲顯示後續對話
-          if (dialogEffects.length > 1) {
-            let delay = 3000; // 第一個對話顯示3秒後顯示下一個
-            for (let i = 1; i < dialogEffects.length; i++) {
-              setTimeout(() => {
+            
+            // 如果有多個對話，將後續對話加入隊列
+            if (dialogEffects.length > 1) {
+              const remainingDialogs: Dialog[] = [];
+              for (let i = 1; i < dialogEffects.length; i++) {
                 const dialogEffect = dialogEffects[i];
                 if (dialogEffect?.dialog) {
-                  const dialog = dialogEffect.dialog;
-                  // 檢查是否為廣播類型
-                  if (dialog.type === 'broadcast') {
-                    handleBroadcast(dialog);
-                  } else {
-                    setCurrentDialog(dialog);
-                  }
+                  remainingDialogs.push(dialogEffect.dialog);
                 }
-              }, delay);
-              delay += 3000; // 每個對話間隔3秒
+              }
+              // 使用對話隊列機制顯示後續對話
+              addDialogsToQueue(remainingDialogs);
             }
           }
         }
@@ -1392,9 +1676,12 @@ export default function PlayPage() {
           }, 2000); // 等待謎題解決對話顯示完
         }
         
+        // 第四空間特殊處理：垂降謎題完成後顯示確認對話框
+        // 注意：確認對話框的顯示邏輯已經移到 handleDialogClose 中處理
+        
         // 如果有場景切換，直接使用 router.push 切換場景
-        // 注意：病床排列謎題不再自動切換場景，改為讓玩家選擇
-        if (sceneChanged && currentPuzzle.id !== 'bed_arrangement') {
+        // 注意：病床排列謎題和垂降謎題不再自動切換場景，改為讓玩家選擇
+        if (sceneChanged && currentPuzzle.id !== 'bed_arrangement' && currentPuzzle.id !== 'descend') {
           // 計算所有對話的總顯示時間
           const totalDialogTime = dialogEffects.length * 3000;
           if (dialogEffects.length > 0) {
@@ -1409,11 +1696,8 @@ export default function PlayPage() {
         }
         
         // 結局特殊處理：最終出口謎題
-        if (currentPuzzle.id === 'final_exit' && scene?.id === 'ch1_sc5') {
-          // 結局已經在 onSolve 中處理，所有對話都會按順序顯示
-          // 設置遊戲完成標記
-          engine.applyEffect({ type: 'setFlag', flag: 'game_completed', value: true });
-        }
+        // 注意：game_completed flag 已經在 onSolve 的最後設置，不需要重複設置
+        // 所有對話會通過對話隊列機制依序顯示，最後一個對話關閉後會自動顯示結束畫面
         
         // 更新 refreshKey
         setRefreshKey(prev => prev + 1);
@@ -1623,7 +1907,7 @@ export default function PlayPage() {
       {currentDialog && (
         <DialogBox
           dialog={currentDialog}
-          onClose={() => setCurrentDialog(null)}
+          onClose={handleDialogClose}
           autoClose={false}
         />
       )}
@@ -1722,6 +2006,50 @@ export default function PlayPage() {
           currentChapterId={chapterId}
           currentSceneId={sceneId}
         />
+      )}
+
+      {/* 遊戲結束畫面 */}
+      {showGameEnd && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* 結束圖片 */}
+            <div className="w-full h-full flex items-center justify-center bg-black">
+              <img 
+                src="/images/ending_image.png" 
+                alt="遊戲結束" 
+                className="max-w-full max-h-full object-contain"
+                onError={(e) => {
+                  // 如果圖片載入失敗，顯示備用文字
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<div class="text-gray-300 text-center"><p class="text-lg mb-4">遊戲結束</p><p class="text-sm text-gray-400">感謝你的遊玩</p></div>';
+                  }
+                }}
+              />
+            </div>
+            {/* 關閉按鈕 */}
+            <button
+              onClick={() => {
+                // 清除遊戲狀態
+                if (engineRef.current) {
+                  const engine = engineRef.current;
+                  // 清除 localStorage 中的遊戲狀態
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('gameState');
+                  }
+                }
+                setShowGameEnd(false);
+                gameEndShownRef.current = false;
+                router.push('/');
+              }}
+              className="absolute bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg z-[10000]"
+            >
+              返回首頁
+            </button>
+          </div>
+        </div>
       )}
 
       {/* 放棄遊戲確認對話框 */}
@@ -1920,6 +2248,58 @@ export default function PlayPage() {
               </button>
               <button
                 onClick={() => setShowDoor702Confirm(false)}
+                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
+              >
+                再等等
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 第四空間垂降確認對話框 */}
+      {showDescendConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">垂降到二樓露台</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                你已經成功垂降到二樓露台。風很大，吹得你眼睛發乾。
+              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">
+                你要繼續前往二樓露台嗎？
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDescendConfirm(false);
+                  // 切換到第五空間
+                  if (engineRef.current) {
+                    engineRef.current.applyEffect({
+                      type: 'changeScene',
+                      chapterId: 'ch1',
+                      sceneId: 'ch1_sc5',
+                    });
+                    // 保存狀態
+                    if (typeof window !== 'undefined') {
+                      try {
+                        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+                      } catch (e) {
+                        console.warn('無法保存遊戲狀態:', e);
+                      }
+                    }
+                  }
+                  router.push('/play/ch1/ch1_sc5');
+                  setRefreshKey(prev => prev + 1);
+                }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+              >
+                前往二樓露台
+              </button>
+              <button
+                onClick={() => setShowDescendConfirm(false)}
                 className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
               >
                 再等等
