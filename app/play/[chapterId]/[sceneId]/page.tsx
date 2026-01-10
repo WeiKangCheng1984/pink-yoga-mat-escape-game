@@ -1842,7 +1842,7 @@ export default function PlayPage() {
             {/* 結束圖片 */}
             <div className="w-full h-full flex items-center justify-center bg-black">
               <img 
-                src="/images/ending_image.png" 
+                src="/images/ending_image.webp" 
                 alt="遊戲結束" 
                 className="max-w-full max-h-full object-contain"
                 onError={(e) => {

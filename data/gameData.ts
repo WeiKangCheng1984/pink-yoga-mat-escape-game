@@ -176,7 +176,7 @@ export const scenes: Record<string, Scene> = {
     chapterId: 'ch1',
     name: '病房 701',
     description: '你睜眼的那刻不是光，而是白到刺痛的牆。',
-    background: '/images/bg_ch1_sc1_v1.png',
+    background: '/images/bg_ch1_sc1_v1.webp',
     hotspots: [
       {
         id: 'bed',
@@ -409,7 +409,7 @@ export const scenes: Record<string, Scene> = {
     chapterId: 'ch1',
     name: '走廊',
     description: '走廊像被拉長的冷白色傷口。兩側掛著破碎的鏡子，每一片都映出你不同的角度——但沒有一片完整地映出「你」。燈光閃爍不是恐怖片那種誇張，而是更像電壓不足：這裡的恐怖是「省電」的。',
-    background: '/images/bg_ch1_sc2_v1.png',
+    background: '/images/bg_ch1_sc2_v1.webp',
     hotspots: [
       {
         id: 'mirror',
@@ -628,7 +628,7 @@ export const scenes: Record<string, Scene> = {
     chapterId: 'ch1',
     name: '病房 702',
     description: '702 比 701 豪華：有沙發、有衣櫃、有更大的窗。但「豪華」在這裡像嘲諷：打鬥痕跡留在牆角，地毯上有被拖拽的毛邊，像有人曾經用盡力氣想把自己從這裡拖出去。',
-    background: '/images/bg_ch1_sc3_v1.png',
+    background: '/images/bg_ch1_sc3_v1.webp',
     hotspots: [
       {
         id: 'recorder_spot',
@@ -897,7 +897,7 @@ export const scenes: Record<string, Scene> = {
     chapterId: 'ch1',
     name: '702 陽台',
     description: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。你往下看，城市似乎有些燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
-    background: '/images/bg_ch1_sc4_v1.png',
+    background: '/images/bg_ch1_sc4_v1.webp',
     hotspots: [
       {
         id: 'plant',
@@ -1184,7 +1184,7 @@ export const scenes: Record<string, Scene> = {
     chapterId: 'ch1',
     name: '二樓露台',
     description: '露台堆滿廢棄醫療器材箱，像一個被清空的戰場。你以為這裡會更自由，但空氣更重，因為你終於靠近「存貨區」。地上有拖行痕，像箱子不是被搬運，是被拉走；有些箱角撞裂，露出內層保麗龍，乾淨得像骨頭。',
-    background: '/images/bg_ch1_sc5_v1.png',
+    background: '/images/bg_ch1_sc5_v1.webp',
     hotspots: [
       {
         id: 'cold_label_spot',
