@@ -27,7 +27,7 @@ export default function DeveloperPanel({ onClose, currentChapterId, currentScene
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-purple-500/50 rounded-2xl p-6 md:p-8 max-w-4xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-purple-500/50 rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* 標題欄 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

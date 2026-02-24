@@ -104,7 +104,7 @@ export default function VisualSelectionPuzzle({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl max-w-[min(600px,100vmin)] w-full shadow-2xl max-h-[90vh] flex flex-col">
         {/* 標題欄 - 固定 */}
         <div className="flex items-center justify-between p-6 md:p-8 pb-4 border-b border-dark-border flex-shrink-0">
           <div className="flex items-center gap-3">

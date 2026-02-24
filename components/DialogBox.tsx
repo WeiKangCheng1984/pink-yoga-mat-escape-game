@@ -89,7 +89,7 @@ export default function DialogBox({
       className="fixed inset-0 z-50 flex items-end justify-center p-4 pointer-events-none md:items-center md:p-8"
     >
       <div
-        className={`max-w-3xl w-full p-6 md:p-8 rounded-2xl border-2 backdrop-blur-xl ${styles.container} pointer-events-auto shadow-2xl transform transition-all duration-300 ${
+        className={`max-w-[min(600px,100vmin)] w-full p-6 md:p-8 rounded-2xl border-2 backdrop-blur-xl ${styles.container} pointer-events-auto shadow-2xl transform transition-all duration-300 ${
           isComplete ? 'scale-100' : 'scale-95'
         }`}
       >

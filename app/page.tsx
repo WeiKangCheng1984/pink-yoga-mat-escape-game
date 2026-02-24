@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Play } from 'lucide-react';
+import HomeBackground from '@/components/HomeBackground';
 
 export default function Home() {
   const router = useRouter();
@@ -22,8 +23,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-dark-bg to-dark-surface">
-      <div className="text-center max-w-2xl px-4">
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-dark-bg to-dark-surface" aria-hidden />
+      <HomeBackground />
+      <div className="relative min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-2xl px-4">
         <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-red-500 bg-clip-text text-transparent">
           粉紅瑜珈墊
         </h1>
@@ -36,6 +40,7 @@ export default function Home() {
         </button>
         <div className="mt-8 text-sm text-gray-600">
           <p>使用滑鼠點擊場景中的物件進行互動</p>
+        </div>
         </div>
       </div>
     </div>

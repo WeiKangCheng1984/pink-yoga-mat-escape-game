@@ -1546,13 +1546,124 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-dark-bg overflow-hidden">
-      {/* 場景視圖 - 全屏沉浸式 */}
-      <div className={`absolute inset-0 transition-all duration-300 ${
-        showInventory ? 'md:translate-x-[-320px]' : ''
-      }`}>
-        <div className="h-full w-full flex items-center justify-center p-4 md:p-8">
-          <div className="relative w-full max-w-4xl aspect-square bg-dark-surface/30 backdrop-blur-sm rounded-2xl overflow-hidden border border-dark-border/50 shadow-2xl">
+    <div className="relative min-h-screen bg-dark-bg overflow-hidden flex flex-col items-center p-4">
+      {/* 單一中央欄位：頂列 + 場景 + 背包（與手機呈現一致） */}
+      <div className="w-full max-w-[min(600px,100vmin)] flex flex-col relative my-auto">
+        {/* 頂列：左側場景名稱與切換、右側放棄／背包／開發者 */}
+        <div className="relative flex-shrink-0 flex flex-row justify-between items-center gap-2 py-3 mb-2 z-30">
+          {/* 左側：場景名稱 + 場景切換按鈕 */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="px-3 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg shadow-lg min-w-0">
+              <div className="text-sm font-medium text-gray-300 truncate">{scene.name}</div>
+            </div>
+            {state.visitedScenes.length > 1 && (
+              <button
+                onClick={() => setShowSceneSelector(!showSceneSelector)}
+                className="flex-shrink-0 group flex items-center gap-1.5 px-3 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
+                title="切換場景"
+              >
+                <MapPin size={18} className="text-gray-300 group-hover:text-blue-400 transition-colors" />
+                <ChevronDown size={16} className={`transition-transform ${showSceneSelector ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+          {/* 右側：放棄遊戲 + 背包 + 開發者按鈕 */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+            onClick={() => setShowQuitConfirm(true)}
+            className="group flex items-center gap-2 px-3 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
+          >
+            <ArrowLeft size={18} className="group-hover:translate-x-[-2px] transition-transform" />
+            <span className="text-sm font-medium">放棄遊戲</span>
+          </button>
+            <button
+              onClick={() => setShowInventory(!showInventory)}
+              className="group flex items-center justify-center w-10 h-10 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg relative"
+              title="背包"
+            >
+              <Package size={20} className="text-gray-300 group-hover:text-blue-400 transition-colors" />
+              {state.inventory.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-dark-bg shadow-lg animate-pulse">
+                  {state.inventory.length}
+                </span>
+              )}
+            </button>
+            {devMode && (
+              <button
+                onClick={() => setShowDeveloperPanel(!showDeveloperPanel)}
+                className={`group flex items-center justify-center w-10 h-10 backdrop-blur-md border rounded-lg transition-all duration-200 shadow-lg ${
+                  showDeveloperPanel
+                    ? 'bg-purple-600/30 border-purple-500 text-purple-200'
+                    : 'bg-purple-600/10 border-purple-500/30 text-purple-400/50 hover:bg-purple-600/20 hover:border-purple-500/50 hover:text-purple-300'
+                }`}
+                title="開發者模式 (僅在 ?dev=1 時可用)"
+              >
+                <Code size={20} className="transition-colors" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 場景選擇器下拉 - 相對於頂列 */}
+        {showSceneSelector && state.visitedScenes.length > 1 && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setShowSceneSelector(false)} aria-hidden="true" />
+            <div className="absolute top-14 left-0 mt-1 z-30 w-64 bg-dark-surface/95 backdrop-blur-xl border border-dark-border rounded-lg shadow-2xl p-4">
+              <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">已訪問的場景</div>
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {state.visitedScenes.map((visitedSceneId) => {
+                  const visitedScene = scenes[visitedSceneId];
+                  if (!visitedScene) return null;
+                  const isCurrentScene = visitedSceneId === sceneId;
+                  return (
+                    <button
+                      key={visitedSceneId}
+                      onClick={() => {
+                        if (!engineRef.current) return;
+                        const engine = engineRef.current;
+                        engine.applyEffect({
+                          type: 'changeScene',
+                          chapterId: visitedScene.chapterId,
+                          sceneId: visitedSceneId,
+                        });
+                        if (typeof window !== 'undefined') {
+                          try {
+                            localStorage.setItem('gameState', JSON.stringify(engine.getState()));
+                          } catch (e) {
+                            console.warn('無法保存遊戲狀態:', e);
+                          }
+                        }
+                        router.push(`/play/${visitedScene.chapterId}/${visitedSceneId}`);
+                        setShowSceneSelector(false);
+                        setRefreshKey(prev => prev + 1);
+                      }}
+                      disabled={isCurrentScene}
+                      className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
+                        isCurrentScene
+                          ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 cursor-not-allowed'
+                          : 'bg-dark-surface/50 border border-dark-border/50 text-gray-300 hover:bg-dark-surface hover:border-dark-border hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">{visitedScene.name}</div>
+                          {visitedScene.description && (
+                            <div className="text-xs text-gray-400 mt-1 line-clamp-1">{visitedScene.description}</div>
+                          )}
+                        </div>
+                        {isCurrentScene && <div className="text-xs text-blue-400 font-medium">當前</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 場景區塊 + 背包（背包疊在場景右側，關閉時隱藏於右側外） */}
+        <div className="relative w-full overflow-hidden">
+          <div className="relative w-full aspect-square bg-dark-surface/30 backdrop-blur-sm rounded-2xl overflow-hidden border border-dark-border/50 shadow-2xl">
             <SceneView
               ref={sceneViewRef}
               scene={scene}
@@ -1561,160 +1672,24 @@ export default function PlayPage() {
               interactionCount={interactionCount}
             />
           </div>
-        </div>
-      </div>
-
-      {/* 浮動控制按鈕組 - 右上角 */}
-      <div className="absolute top-4 right-4 z-30 flex flex-col gap-2">
-        {/* 返回按鈕 */}
-        <button
-          onClick={() => setShowQuitConfirm(true)}
-          className="group flex items-center gap-2 px-4 py-2.5 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
-        >
-          <ArrowLeft size={18} className="group-hover:translate-x-[-2px] transition-transform" />
-          <span className="text-sm font-medium hidden sm:inline">放棄遊戲</span>
-        </button>
-
-        {/* 菜單按鈕組 */}
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => setShowInventory(!showInventory)}
-            className="group flex items-center justify-center w-12 h-12 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg relative"
-            title="背包"
-          >
-            <Package size={22} className="text-gray-300 group-hover:text-blue-400 transition-colors" />
-            {state.inventory.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-dark-bg shadow-lg animate-pulse">
-                {state.inventory.length}
-              </span>
-            )}
-          </button>
-          {/* 開發者模式按鈕 - 僅在 URL 參數 ?dev=1 時顯示 */}
-          {devMode && (
-            <button
-              onClick={() => setShowDeveloperPanel(!showDeveloperPanel)}
-              className={`group flex items-center justify-center w-12 h-12 backdrop-blur-md border rounded-lg transition-all duration-200 shadow-lg ${
-                showDeveloperPanel
-                  ? 'bg-purple-600/30 border-purple-500 text-purple-200'
-                  : 'bg-purple-600/10 border-purple-500/30 text-purple-400/50 hover:bg-purple-600/20 hover:border-purple-500/50 hover:text-purple-300'
-              }`}
-              title="開發者模式 (僅在 ?dev=1 時可用)"
-            >
-              <Code size={22} className="transition-colors" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 場景名稱和切換按鈕 - 左上角浮動 */}
-      <div className="absolute top-4 left-4 z-30 flex gap-2">
-        <div className="px-4 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg shadow-lg">
-          <div className="text-sm font-medium text-gray-300">{scene.name}</div>
-        </div>
-        {/* 場景切換按鈕 */}
-        {state.visitedScenes.length > 1 && (
-          <button
-            onClick={() => setShowSceneSelector(!showSceneSelector)}
-            className="group flex items-center gap-2 px-4 py-2 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
-            title="切換場景"
-          >
-            <MapPin size={18} className="text-gray-300 group-hover:text-blue-400 transition-colors" />
-            <ChevronDown size={16} className={`transition-transform ${showSceneSelector ? 'rotate-180' : ''}`} />
-          </button>
-        )}
-      </div>
-
-      {/* 場景選擇器 */}
-      {showSceneSelector && state.visitedScenes.length > 1 && (
-        <>
-          {/* 背景遮罩，點擊關閉 */}
+          {/* 背包 - 點選按鈕後滑入顯示，關閉時滑出隱藏 */}
           <div
-            className="fixed inset-0 z-20"
-            onClick={() => setShowSceneSelector(false)}
-          />
-          <div className="absolute top-20 left-4 z-30 w-64 bg-dark-surface/95 backdrop-blur-xl border border-dark-border rounded-lg shadow-2xl p-4">
-          <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">已訪問的場景</div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {state.visitedScenes.map((visitedSceneId) => {
-              const visitedScene = scenes[visitedSceneId];
-              if (!visitedScene) return null;
-              const isCurrentScene = visitedSceneId === sceneId;
-              
-              return (
-                <button
-                  key={visitedSceneId}
-                  onClick={() => {
-                    if (!engineRef.current) return;
-                    const engine = engineRef.current;
-                    // 切換場景，但保留所有狀態
-                    engine.applyEffect({
-                      type: 'changeScene',
-                      chapterId: visitedScene.chapterId,
-                      sceneId: visitedSceneId,
-                    });
-                    // 保存狀態
-                    if (typeof window !== 'undefined') {
-                      try {
-                        localStorage.setItem('gameState', JSON.stringify(engine.getState()));
-                      } catch (e) {
-                        console.warn('無法保存遊戲狀態:', e);
-                      }
-                    }
-                    // 導航到新場景
-                    router.push(`/play/${visitedScene.chapterId}/${visitedSceneId}`);
-                    setShowSceneSelector(false);
-                    setRefreshKey(prev => prev + 1);
-                  }}
-                  disabled={isCurrentScene}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
-                    isCurrentScene
-                      ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 cursor-not-allowed'
-                      : 'bg-dark-surface/50 border border-dark-border/50 text-gray-300 hover:bg-dark-surface hover:border-dark-border hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">{visitedScene.name}</div>
-                      {visitedScene.description && (
-                        <div className="text-xs text-gray-400 mt-1 line-clamp-1">
-                          {visitedScene.description}
-                        </div>
-                      )}
-                    </div>
-                    {isCurrentScene && (
-                      <div className="text-xs text-blue-400 font-medium">當前</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        </>
-      )}
-
-      {/* 側邊道具欄 - 從右側滑入 */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-dark-surface/95 backdrop-blur-xl border-l border-dark-border z-40 transform transition-transform duration-300 ease-out ${
-        showInventory ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-        <div className="h-full flex flex-col">
-          {/* 道具欄標題 */}
-          <div className="flex items-center justify-between p-4 border-b border-dark-border">
-            <h2 className="text-lg font-semibold text-gray-200">背包</h2>
-            <button
-              onClick={() => setShowInventory(false)}
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-dark-card rounded transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          
-          {/* 道具列表 */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <Inventory
-              itemIds={state.inventory}
-              onItemClick={handleItemClick}
-            />
+            className={`absolute top-0 right-0 h-full w-72 max-w-[85%] bg-dark-surface/95 backdrop-blur-xl border-l border-dark-border z-40 flex flex-col transform transition-transform duration-300 ease-out ${
+              showInventory ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+            }`}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-dark-border">
+              <h2 className="text-base font-semibold text-gray-200">背包</h2>
+              <button
+                onClick={() => setShowInventory(false)}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-dark-card rounded transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              <Inventory itemIds={state.inventory} onItemClick={handleItemClick} />
+            </div>
           </div>
         </div>
       </div>
@@ -1882,7 +1857,7 @@ export default function PlayPage() {
       {/* 放棄遊戲確認對話框 */}
       {showQuitConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-gray-200 mb-2">確認放棄遊戲</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
@@ -1931,7 +1906,7 @@ export default function PlayPage() {
       {/* 第一空間門確認對話框 */}
       {showDoor701Confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 701</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
@@ -1983,7 +1958,7 @@ export default function PlayPage() {
       {/* 702號病房門確認對話框 */}
       {showDoor702Confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-gray-200 mb-2">702號病房</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
@@ -2035,7 +2010,7 @@ export default function PlayPage() {
       {/* 第四空間垂降確認對話框 */}
       {showDescendConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-gray-200 mb-2">垂降到二樓露台</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
@@ -2087,7 +2062,7 @@ export default function PlayPage() {
       {/* 第三空間落地窗確認對話框 */}
       {showWindow702Confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
+          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
               <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 702</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
