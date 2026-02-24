@@ -1,42 +1,91 @@
 ---
 alwaysApply: true
 ---
-核心框架
+## 核心框架
 
-Next.js 14（App Router）：章節 / 場景用路由呈現（/play/[chapterId]/[sceneId]）
-TypeScript 5：用型別鎖住內容結構（Scene/Hotspot/Event/Requirement/Effect），避免劇情越改越崩
-Tailwind CSS 3：快速做沉浸式 UI（暗色、霧面、卡片、對話框）
-Lucide React：線索牆、音量、返回、提示等輕量圖示
-部署：Vercel：靜態資產 + SSR/CSR 混用、快速迭代上線
-資料與內容規範（你最關鍵的「自救法則」）
+- **Next.js 14（App Router）**：章節／場景用路由呈現，遊戲頁為 `/play/[chapterId]/[sceneId]`
+- **TypeScript 5**：用型別鎖住內容結構（Scene / Hotspot / Event / Requirement / Effect / Puzzle / Item / GameState），避免劇情越改越崩
+- **Tailwind CSS 3**：沉浸式 UI（暗色、霧面、卡片、對話框），主題色在 `tailwind.config.js` 的 `dark.*`
+- **Lucide React**：線索牆、音量、返回、提示等輕量圖示
+- **部署**：Vercel；靜態資產 + SSR/CSR 混用
 
-【1】場景背景圖（BG）
-固定比例
-固定尺寸：720×720
-格式：PNG
-單張大小上限：≤ 250KB（超過就重壓或降畫質）
-命名：bg_ch{章}_sc{場}_v{版}
+## 專案目錄結構
 
-【2】物件圖（道具/線索/特寫）
-尺寸：長邊 384px（需要更清楚才用 512px）
-格式：
-需要透明：PNG
-單張大小上限：≤ 80KB（特寫可放寬到 120KB）
-命名：item_{id}_v{版}.webp/png
+- `app/`：首頁 `page.tsx`、`layout.tsx`、`globals.css`；遊戲頁 `app/play/[chapterId]/[sceneId]/page.tsx`
+- `components/`：SceneView、DialogBox、Inventory、PuzzleInput、ArrangementPuzzle、VisualSelectionPuzzle、CombinationLock、PulseClipReader、UVLightPanel、DeveloperPanel
+- `lib/`：`gameEngine.ts`（GameEngine 單例邏輯）、`audioManager.ts`（環境音／SFX／廣播）
+- `data/`：`gameData.ts`（items、broadcasts、scenes、chapters；每個 Scene 可有 `hotspotEventMap`）
+- `types/`：`game.ts`（Hotspot、Item、Requirement、Effect、Event、Dialog、Puzzle、Scene、Chapter、GameState）
 
-【3】UI 圖
-圖示：一律用 Lucide（SVG），不做 PNG icon
-尺寸：720×720 或更小
-大小：≤ 80KB
+## 型別與資料（types/game.ts）
 
-【4】Hotspot（透明點選區）
-座標一律用比例值（0~1），不要用 px
-形狀先只用矩形 rect（真的不規則才用 poly）
-最小可點尺寸：手機至少等效 44×44px
-預設禁止重疊（不要做 priority 複雜規則）
-必做 debug：?debug=1 顯示 hotspot 框與 id（正常模式透明可點）
+- **Hotspot**：id, shape（'rect'|'poly'）, coords（0–1 比例）, description?, hint?
+- **Item**：id, name, description, image?, collectible, usable?
+- **Requirement**：type（hasItem|hasUsedItem|hasInteracted|hasFlag|custom）, itemId?, hotspotId?, flag?, value?, customCheck?
+- **Effect**：type（addItem|removeItem|setFlag|showDialog|playAudio|triggerEvent|changeScene）, 對應欄位
+- **Event**：id, name, description, requirements[], effects[], oneTime?
+- **Dialog**：text, type?（narrator|broadcast|item|system）, audio?
+- **Puzzle**：id, type（input|sequence|arrangement|combination|visual_selection|combination_lock）, solution（string|string[]）, hint?, requirements?, onSolve?, options?（視覺選擇用）
+- **Scene**：id, chapterId, name, description, background, hotspots[], items[], events[], puzzles[], initialDialog?, ambientAudio?, **hotspotEventMap?**（hotspotId → eventId）
+- **Chapter**：id, name, description, scenes[]（scene IDs）
+- **GameState**：currentChapter, currentScene, inventory[], flags{}, interactions[], visitedScenes[]
 
-【5】一致性規則（避免改圖就崩）
-背景改版只允許調色/光影/霧感，不允許移動可互動物件位置
-若真的要移動物件：必須同步更新 hotspots（當作新版本處理）
+## 遊戲引擎（lib/gameEngine.ts）
 
+- **GameEngine** 以 `useRef` 在 play 頁保持單例；可從 `localStorage` 鍵 `gameState` 恢復狀態
+- 方法：getState、getCurrentScene、hasItem、hasInteracted、hasFlag、getFlag、checkRequirement、checkEventRequirements、checkPuzzleRequirements、applyEffect、triggerEvent、interactWithHotspot（備用）、solvePuzzle、useItem、triggerPulseClipBroadcast、setUVLightState、addInteraction
+- 謎題解完會設 `puzzle_${puzzleId}_solved`；onSolve 內可含 changeScene、showDialog 等
+
+## 資料與互動流程（data/gameData.ts + play page）
+
+- **道具取得**：優先走 **hotspotEventMap**。點 hotspot → 若有對應 eventId 且該 event 會 addItem → 先 addInteraction(hotspotId)，再 triggerEvent(eventId)；對話由 event 的 showDialog 組成，必要時用 **對話隊列**（addDialogsToQueue）依序顯示
+- **純敘述 hotspot**：在 play 頁的 `narrativeHotspots` 表直接給旁白，不觸發 event
+- **特殊 hotspot**：門、抽屜、緊急呼叫盒（UV）、病床、702 門、密碼盤、衣櫃、監控、沙發縫隙、落地窗、固定點、垂降點、箱子區、心臟箱、出口等，在 `handleHotspotClick` 內有專用分支（含需求檢查、音效、謎題觸發、確認框）
+- **背包道具使用**：`handleItemClick`；便條、鏡片碎角、同意書、錄音筆、日記、身份證、止痛貼片等有專用邏輯；其餘走 engine.useItem（如脈搏夾會 openPanel: 'pulse_clip'）
+- **場景切換**：門/垂降/落地窗等解謎後多數會設 changeScene，再由 play 頁的確認框或 router.push 導向 `/play/ch1/ch1_sc2` 等；URL 與 engine 狀態同步，並寫回 localStorage
+
+## 謎題與 UI 組件
+
+- **input / sequence**：PuzzleInput
+- **arrangement**：ArrangementPuzzle
+- **visual_selection**：VisualSelectionPuzzle
+- **combination_lock**：CombinationLock
+- **combination**：由 play 頁邏輯處理（如手把開窗、垂降用 blank_nameplate）
+- 廣播類對話：播放 broadcast 音效 + SceneView.triggerFlicker，再顯示 Dialog
+
+## 音效與氛圍（lib/audioManager.ts）
+
+- 環境音：playAmbient（循環），依場景 id 在 play 頁切換（ch1_sc1～ch1_sc5 各對應 ambient 檔）
+- SFX：playSFX（快取），用於道具、門、病床、衣櫃、監控、垂降等
+- 廣播：broadcast_static.mp3 + 劇烈閃爍
+- 路徑慣例：/audio/ambient/、/audio/sfx/、/audio/broadcast/、/audio/horror/
+
+## Debug 與開發者
+
+- **?debug=1**：SceneView 顯示 hotspot 框與 id
+- **?dev=1**：顯示開發者面板按鈕，可開 DeveloperPanel（章節/場景跳轉等）
+- 遊戲狀態鍵：localStorage `gameState`
+
+## 資料與內容規範（自救法則）
+
+【1】場景背景圖（BG）  
+- 固定比例、固定尺寸 720×720、PNG、單張 ≤ 250KB  
+- 命名：bg_ch{章}_sc{場}_v{版}
+
+【2】物件圖（道具/線索/特寫）  
+- 長邊 384px（必要時 512px）、需透明用 PNG  
+- 單張 ≤ 80KB（特寫可 120KB）  
+- 命名：item_{id}_v{版}.webp/png
+
+【3】UI 圖  
+- 圖示一律用 Lucide（SVG），不做 PNG icon；尺寸/大小 ≤ 80KB
+
+【4】Hotspot（透明點選區）  
+- 座標一律比例 0~1，形狀先只用 rect（不規則再用 poly）  
+- 最小可點尺寸：手機等效至少 44×44px  
+- 預設禁止重疊  
+- debug：?debug=1 顯示 hotspot 框與 id
+
+【5】一致性規則（避免改圖就崩）  
+- 背景改版只允許調色/光影/霧感，不移動可互動物件位置  
+- 若移動物件：須同步更新 hotspots，當新版本處理

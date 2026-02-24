@@ -1122,7 +1122,7 @@ export default function PlayPage() {
       const state = engine.getState();
       if (!state.flags.final_password_revealed && !state.flags.coordinates_revealed) {
         setCurrentDialog({
-          text: '逃生口需要座標密碼才能打開。你需要先完成拼箱排序或查看身份證背面。',
+          text: '逃生口需要座標密碼才能打開。請輸入座標密碼。你需要先完成拼箱排序或查看身份證背面。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1980,58 +1980,6 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* 第一空間門確認對話框 */}
-      {showDoor701Confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
-            <div className="mb-6">
-              <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 701</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
-                門已經打開。走廊的冷白色燈光從門縫中透進來，你聽到遠處傳來微弱的聲音。
-              </p>
-              <p className="mt-4 text-sm text-gray-300 font-medium">
-                你要離開病房 701，前往走廊嗎？
-              </p>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDoor701Confirm(false);
-                  // 切換到第二空間
-                  if (engineRef.current) {
-                    engineRef.current.applyEffect({
-                      type: 'changeScene',
-                      chapterId: 'ch1',
-                      sceneId: 'ch1_sc2',
-                    });
-                    // 保存狀態
-                    if (typeof window !== 'undefined') {
-                      try {
-                        localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
-                      } catch (e) {
-                        console.warn('無法保存遊戲狀態:', e);
-                      }
-                    }
-                  }
-                  router.push('/play/ch1/ch1_sc2');
-                  setRefreshKey(prev => prev + 1);
-                }}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-              >
-                前往走廊
-              </button>
-              <button
-                onClick={() => setShowDoor701Confirm(false)}
-                className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
-              >
-                再等等
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 702號病房門確認對話框 */}
       {showDoor702Confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -2094,7 +2042,7 @@ export default function PlayPage() {
                 你已經成功垂降到二樓露台。風很大，吹得你眼睛發乾。
               </p>
               <p className="mt-4 text-sm text-gray-300 font-medium">
-                你要繼續前往二樓露台嗎？
+                要進入下一段嗎？
               </p>
             </div>
             
@@ -2123,7 +2071,7 @@ export default function PlayPage() {
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
               >
-                前往二樓露台
+                進入二樓露台
               </button>
               <button
                 onClick={() => setShowDescendConfirm(false)}

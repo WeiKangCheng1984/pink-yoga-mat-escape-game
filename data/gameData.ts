@@ -91,7 +91,7 @@ export const items: Record<string, Item> = {
   'termination_notice': {
     id: 'termination_notice',
     name: '實驗終止通知書',
-    description: '《實驗終止通知書》：07號，達標，進入收割排程。\n你以為終止的是實驗...',
+    description: '《實驗終止通知書》：07號，達標，進入收割排程。\n你以為終止的是實驗，終止的其實是你。',
     collectible: true,
   },
   
@@ -352,7 +352,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你用生鏽髮夾撬開抽屜。金屬摩擦的聲音像指甲刮過黑板，但更糟，那是你骨頭深處的記憶。\n\n抽屜打開那瞬間，先不是物品映入眼簾，而是一股陳舊的鐵鏽味——和你嘴裡的血腥同一種語言。\n\n裡面躺著一把小鑰匙，上面有薄薄的血跡，像被人用酒精擦過一次。',
+              text: '你用生鏽髮夾撬開抽屜。金屬摩擦的聲音像指甲刮過黑板，但更糟，那是你骨頭深處的記憶。\n\n抽屜打開那瞬間，先不是物品映入眼簾，而是一股陳舊的鐵鏽味——和你嘴裡的血腥同一種語言。\n\n裡面躺著一把小鑰匙，上面有薄薄的血跡，像被人用酒精擦過一次。你取走了沾血小鑰匙。',
               type: 'narrator',
             },
           },
@@ -490,7 +490,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：鏡片碎角\n\n一小片破碎的鏡子，邊緣鋒利。它不鋒利，但足夠讓人誤以為自己還能反擊。',
+              text: '獲得：鏡片碎角\n\n一小片破碎的鏡子，邊緣鋒利，足夠讓人誤以為自己還能反擊。',
               type: 'item',
             },
           },
@@ -835,7 +835,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '衣櫃門像被彈簧推開，假人穿粉紅瑜珈服，動作僵硬地做著「下犬式」。\n\n它手上那張紙寫著：\n**《實驗終止通知書》：07號，達標，進入收割排程。**\n\n獲得：實驗終止通知書\n\n你以為終止的是實驗...',
+              text: '衣櫃門像被彈簧推開，假人穿粉紅瑜珈服，動作僵硬地做著「下犬式」。\n\n它手上那張紙寫著：\n**《實驗終止通知書》：07號，達標，進入收割排程。**\n\n獲得：實驗終止通知書\n\n你以為終止的是實驗，終止的其實是你。',
               type: 'item',
             },
           },
@@ -856,7 +856,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '監控螢幕突然亮起，顯示你在 701 病房訓練的畫面。\n\n**廣播台詞（第三次）**：\n**「實驗體 07 體能已達標，準備收割。……請勿弄髒地面。」**',
+              text: '監控螢幕突然亮起，顯示你在 701 病房訓練的畫面。\n\n**「實驗體 07 體能已達標，準備收割。……請勿弄髒地面。」**',
               type: 'broadcast',
             },
           },
@@ -896,7 +896,7 @@ export const scenes: Record<string, Scene> = {
     id: 'ch1_sc4',
     chapterId: 'ch1',
     name: '702 陽台',
-    description: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。你往下看，城市似乎有些燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
+    description: '陽台風大，吹得你眼睛發乾。鐵柵欄鏽蝕嚴重，但它不是「老舊」的那種鏽——更像被某種化學藥劑刻意催熟。你往下看，城市沒有燈火；這棟樓像被挖出來的一顆牙，孤零零插在黑暗裡。',
     background: '/images/bg_ch1_sc4_v1.webp',
     hotspots: [
       {
@@ -1399,6 +1399,7 @@ export const scenes: Record<string, Scene> = {
         id: 'final_exit',
         type: 'combination_lock',
         solution: '24120',
+        hint: '請輸入座標密碼。',
         onSolve: [
           {
             type: 'showDialog',
@@ -1410,7 +1411,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你低頭看手裡的粉紅瑜珈墊——它的內層其實有一道**壓紋暗線**，用 UV 燈照會顯出簡化地圖與標記：\n\n* 一個像「手術刀」的符號\n* 一個像「電塔」的符號\n* 一個寫著「回收點」的圈\n\n你終於懂了：這不是瑜珈墊，這是「逃亡教材」。\n有人在更早之前就失敗過；而你，是下一個版本。',
+              text: '你低頭看手裡的粉紅瑜珈墊——它的內層其實有一道**壓紋暗線**，用 UV 燈照會顯出簡化地圖與標記：\n\n* 一個像「手術刀」的符號\n* 一個像「電塔」的符號\n* 一個寫著「回收點」的圈\n\n你終於懂了：這不是瑜珈墊，這是「逃亡者教材」。\n有人在更早之前就失敗過；而你，是下一個版本。',
               type: 'narrator',
             },
           },
