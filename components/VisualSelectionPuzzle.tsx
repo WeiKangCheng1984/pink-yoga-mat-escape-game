@@ -68,23 +68,31 @@ function RailingFixedPointDiagram({
 
   const hovered = hoveredId ? options.find((o) => o.id === hoveredId) : null;
 
+  const activatePoint = (id: string) => {
+    setHoveredId(id);
+    onSelect(id);
+  };
+
   return (
     <div className="relative w-full select-none">
-      <p className="text-xs text-gray-500 mb-2">點選欄杆上的扣環；選滿三個會以半透明三角連線示意支撐。</p>
+      <p className="text-sm text-gray-500 mb-2 leading-snug">
+        點選欄杆上的扣環；選滿三個會以半透明三角連線示意支撐。
+      </p>
       <svg
         viewBox="0 0 400 160"
-        className="w-full h-auto max-h-[220px] touch-manipulation"
+        className="w-full h-auto max-h-[min(220px,32vh)] touch-manipulation"
         role="img"
         aria-label="欄杆固定點示意圖，共七處可點選"
       >
+        {/* 簡化欄杆線條（避免粗弧線像垂繩遮字、搶版面） */}
         <path
           d={railPathD}
           fill="none"
           stroke="rgb(51 65 85)"
-          strokeWidth={9}
+          strokeWidth={4}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="opacity-90"
+          className="opacity-85"
         />
         {trianglePts && (
           <polygon
@@ -116,7 +124,7 @@ function RailingFixedPointDiagram({
                   y={p.y + 4}
                   textAnchor="middle"
                   fill="white"
-                  fontSize={11}
+                  fontSize={13}
                   fontWeight={700}
                   className="pointer-events-none"
                 >
@@ -126,10 +134,14 @@ function RailingFixedPointDiagram({
               <circle
                 cx={p.x}
                 cy={p.y}
-                r={22}
+                r={26}
                 fill="transparent"
                 className="cursor-pointer hover:fill-white/5"
-                onClick={() => onSelect(opt.id)}
+                onPointerDown={(e) => {
+                  /* 手機無 hover：必須在按下時就鎖定說明，否則下方文案永遠不更新 */
+                  e.preventDefault();
+                  activatePoint(opt.id);
+                }}
                 onMouseEnter={() => setHoveredId(opt.id)}
                 onMouseLeave={() => setHoveredId(null)}
               />
@@ -137,23 +149,25 @@ function RailingFixedPointDiagram({
           );
         })}
       </svg>
-      <div className="flex justify-between gap-0.5 mt-1 px-0.5 text-[10px] text-gray-500 tabular-nums">
+      <div className="grid grid-cols-7 gap-0.5 mt-2 px-0.5 text-[11px] sm:text-xs text-gray-500 tabular-nums text-center">
         {options.map((opt, i) => (
-          <span key={opt.id} className="flex-1 min-w-0 text-center truncate" title={opt.label}>
+          <span key={opt.id} className="min-w-0" title={opt.label}>
             {i + 1}
           </span>
         ))}
       </div>
-      <div className="mt-3 min-h-[4.5rem] p-3 rounded-lg bg-dark-surface/80 border border-dark-border text-xs text-gray-400">
+      <div className="mt-3 max-h-[min(42vh,18rem)] min-h-[6rem] overflow-y-auto overscroll-contain p-3 sm:p-3.5 rounded-lg bg-dark-surface/80 border border-dark-border text-sm text-gray-300">
         {hovered ? (
           <>
-            <div className="text-purple-300 font-medium mb-1">{hovered.label}</div>
-            <div className="whitespace-pre-line leading-relaxed text-gray-400">
+            <div className="text-purple-300 font-medium mb-1.5">{hovered.label}</div>
+            <div className="whitespace-pre-line leading-relaxed text-gray-300 break-words">
               {hovered.description || '—'}
             </div>
           </>
         ) : (
-          <span className="text-gray-500">游標移到圓點上可讀名牌與代號。</span>
+          <span className="text-gray-500 text-sm leading-relaxed">
+            點選上方圓點可查看此處的名牌與代號（手機請直接點，無需游標懸停）。
+          </span>
         )}
       </div>
     </div>
