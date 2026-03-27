@@ -509,7 +509,8 @@ export default function PlayPage() {
     return () => clearInterval(horrorTimer);
   }, [scene?.id]);
 
-  // 初始化場景對話（有 sceneCard 時須先關閉幕間，見下方全螢幕幕）
+  // 初始化場景對話：僅在場景 id 變更時執行一次。勿依賴 refreshKey，否則每次互動都會重播開場白。
+  // 有 sceneCard 且尚未 intro_seen 時由幕間「繼續」手動觸發 initialDialog（見下方按鈕）。
   useEffect(() => {
     if (!scene?.initialDialog || !engineRef.current) return;
     const introFlag = `intro_seen_${scene.id}`;
@@ -520,7 +521,7 @@ export default function PlayPage() {
       setCurrentDialog(scene.initialDialog ?? null);
     }, 500);
     return () => clearTimeout(timer);
-  }, [scene?.id, refreshKey]);
+  }, [scene?.id]);
 
   // 觸發劇烈閃爍（廣播時使用）
   const triggerIntenseFlicker = useCallback(() => {
@@ -1676,6 +1677,11 @@ export default function PlayPage() {
                   }
                 }
                 setRefreshKey((prev) => prev + 1);
+                if (scene.initialDialog) {
+                  setTimeout(() => {
+                    setCurrentDialog(scene.initialDialog ?? null);
+                  }, 500);
+                }
               }}
               className="mt-6 px-8 py-3 rounded-lg bg-dark-card border border-dark-border text-gray-200 hover:text-white hover:border-gray-500 transition-colors text-sm"
             >
