@@ -1,18 +1,51 @@
 import { GameState, Scene, Event, Requirement, Effect, Puzzle, Item } from '@/types/game';
 import { scenes, items } from '@/data/gameData';
 
+/** 舊存檔：已改為旗標敘事的道具自背包移除並補上對應旗標 */
+export function migrateGameState(state: GameState): GameState {
+  const next: GameState = {
+    ...state,
+    inventory: [...state.inventory],
+    flags: { ...state.flags },
+  };
+
+  if (state.inventory.includes('mirror_shard')) {
+    next.flags.has_mirror_shard = true;
+    next.inventory = next.inventory.filter((id) => id !== 'mirror_shard');
+  }
+
+  const ghostToFlags: { item: string; set: Record<string, boolean> }[] = [
+    { item: 'rusty_hairpin', set: { has_hairpin: true } },
+    { item: 'blood_number', set: {} },
+    { item: 'coordinates', set: { coordinates_revealed: true } },
+    { item: 'termination_notice', set: { jump_scare_triggered: true } },
+    { item: 'runner_bracelet', set: { bracelet_found: true } },
+  ];
+
+  for (const { item, set } of ghostToFlags) {
+    if (state.inventory.includes(item)) {
+      next.inventory = next.inventory.filter((id) => id !== item);
+      Object.assign(next.flags, set);
+    }
+  }
+
+  return next;
+}
+
 export class GameEngine {
   private state: GameState;
 
   constructor(initialState?: GameState) {
-    this.state = initialState || {
-      currentChapter: 'ch1',
-      currentScene: 'ch1_sc1',
-      inventory: [],
-      flags: {},
-      interactions: [],
-      visitedScenes: [],
-    };
+    this.state = migrateGameState(
+      initialState || {
+        currentChapter: 'ch1',
+        currentScene: 'ch1_sc1',
+        inventory: [],
+        flags: {},
+        interactions: [],
+        visitedScenes: [],
+      }
+    );
   }
 
   getState(): GameState {

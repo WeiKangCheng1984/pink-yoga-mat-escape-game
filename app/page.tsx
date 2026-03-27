@@ -39,7 +39,7 @@ export default function Home() {
           開始遊戲
         </button>
         <div className="mt-8 text-sm text-gray-600">
-          <p>使用滑鼠點擊場景中的物件進行互動</p>
+          <p>白牆會記住你的手指。</p>
         </div>
         </div>
       </div>

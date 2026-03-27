@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { GameEngine } from '@/lib/gameEngine';
+import { GameEngine, migrateGameState } from '@/lib/gameEngine';
 import { Dialog } from '@/types/game';
 import SceneView, { SceneViewRef } from '@/components/SceneView';
 import DialogBox from '@/components/DialogBox';
@@ -30,14 +30,14 @@ export default function PlayPage() {
 
   // 使用 useRef 保持 GameEngine 實例，避免重新掛載時重置狀態
   const engineRef = useRef<GameEngine | null>(null);
-  if (!engineRef.current) {
-    // 嘗試從 localStorage 恢復狀態
+    if (!engineRef.current) {
+    // 嘗試從 localStorage 恢復狀態（含舊背包道具遷移）
     let savedState = null;
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('gameState');
         if (saved) {
-          savedState = JSON.parse(saved);
+          savedState = migrateGameState(JSON.parse(saved));
         }
       } catch (e) {
         console.warn('無法從 localStorage 恢復遊戲狀態:', e);
@@ -136,11 +136,19 @@ export default function PlayPage() {
       return false;
     }
     
-    // 步驟3：檢查事件是否會添加道具（通過檢查 effects 中是否有 addItem）
+    // 步驟3：檢查事件是否會添加道具，或為「僅旗標」敘事拾取（如鏡片碎角）
     const addItemEffects = event.effects.filter((e: any) => e.type === 'addItem');
-    if (addItemEffects.length === 0) {
-      // 這個事件不會添加道具，可能不是道具獲取事件，返回 false
+    const flagOnlyPickupIds = new Set(['pickup_mirror_shard']);
+    if (addItemEffects.length === 0 && !flagOnlyPickupIds.has(eventId)) {
       return false;
+    }
+    if (eventId === 'pickup_mirror_shard' && state.flags.has_mirror_shard) {
+      setCurrentDialog({
+        text: '碎片還在掌心，冷得像舊謊言。',
+        type: 'narrator',
+      });
+      setRefreshKey((prev) => prev + 1);
+      return true;
     }
     
     // 步驟4：檢查是否已收集所有相關道具（快速檢查，避免不必要的處理）
@@ -501,16 +509,18 @@ export default function PlayPage() {
     return () => clearInterval(horrorTimer);
   }, [scene?.id]);
 
-  // 初始化場景對話
+  // 初始化場景對話（有 sceneCard 時須先關閉幕間，見下方全螢幕幕）
   useEffect(() => {
-    if (scene?.initialDialog) {
-      // 延遲顯示初始對話，給場景切換一點時間
-      const timer = setTimeout(() => {
-        setCurrentDialog(scene.initialDialog ?? null);
-      }, 500);
-      return () => clearTimeout(timer);
+    if (!scene?.initialDialog || !engineRef.current) return;
+    const introFlag = `intro_seen_${scene.id}`;
+    if (scene.sceneCard && !engineRef.current.getState().flags[introFlag]) {
+      return;
     }
-  }, [scene?.id]);
+    const timer = setTimeout(() => {
+      setCurrentDialog(scene.initialDialog ?? null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [scene?.id, refreshKey]);
 
   // 觸發劇烈閃爍（廣播時使用）
   const triggerIntenseFlicker = useCallback(() => {
@@ -593,7 +603,7 @@ export default function PlayPage() {
       engine.addInteraction('drawer');
       const state = engine.getState();
       // 檢查是否有髮夾
-      if (state.inventory.includes('rusty_hairpin')) {
+      if (state.flags.has_hairpin) {
         // 有髮夾，播放打開音效
         audioManager.playSFX('/audio/sfx/sfx_drawer_open.mp3', 0.7);
         // 有髮夾，觸發打開事件
@@ -618,7 +628,7 @@ export default function PlayPage() {
     // 第二空間：病床排列（病床輪子音效）
     if (hotspotId === 'beds' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
-      if (state.flags.beds_labels_revealed && state.inventory.includes('mirror_shard')) {
+      if (state.flags.beds_labels_revealed && state.flags.has_mirror_shard) {
         audioManager.playSFX('/audio/sfx/sfx_bed_wheel.mp3', 0.5);
       }
     }
@@ -711,23 +721,23 @@ export default function PlayPage() {
     if (hotspotId === 'beds' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
       
-      // 檢查1：是否有鏡片碎角
-      if (!state.inventory.includes('mirror_shard')) {
+      // 檢查1：是否已拾起碎鏡
+      if (!state.flags.has_mirror_shard) {
         setCurrentDialog({
-          text: '每張病床上都有標籤，但字跡模糊不清。你需要工具才能看清上面的內容。',
+          text: '標籤在霧裡。手裡缺一點能折光的東西。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
         return;
       }
       
-      // 檢查2：是否已揭示標籤
+      // 檢查2：是否已揭示標籤（有碎鏡時，靠近病床即完成反射）
       if (!state.flags.beds_labels_revealed) {
         engine.addInteraction('beds');
-        setCurrentDialog({
-          text: '病床上的標籤很模糊，看不清楚。你手中的鏡片碎角或許可以反射光線，讓你看清標籤上的字。',
-          type: 'narrator',
-        });
+        const reveal = engine.triggerEvent('use_mirror_shard_on_beds');
+        if (reveal?.dialog) {
+          setCurrentDialog(reveal.dialog);
+        }
         setRefreshKey(prev => prev + 1);
         return;
       }
@@ -742,9 +752,8 @@ export default function PlayPage() {
           setRefreshKey(prev => prev + 1);
           return;
         } else {
-          // 如果需求未滿足，顯示提示
           setCurrentDialog({
-            text: '你需要先使用鏡片碎角看清病床上的標籤。',
+            text: '標籤還沒對焦。',
             type: 'narrator',
           });
           setRefreshKey(prev => prev + 1);
@@ -757,7 +766,7 @@ export default function PlayPage() {
     if (hotspotId === 'mirror' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
       // 如果已經收集了鏡片碎角，顯示不同的提示
-      if (state.inventory.includes('mirror_shard')) {
+      if (state.flags.has_mirror_shard) {
         setCurrentDialog({
           text: '破碎的鏡面映出你支離破碎的倒影。你已經撿起了地上的碎片，但鏡子本身依然破碎。',
           type: 'narrator',
@@ -826,7 +835,7 @@ export default function PlayPage() {
       // 檢查是否已閱讀日記（觸發跳嚇的前置條件）
       if (!state.flags.diary_read) {
         setCurrentDialog({
-          text: '衣櫃門緊閉。也許你應該先探索房間的其他地方。',
+          text: '衣櫃門緊閉。木紋裡有別人的呼吸。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -872,7 +881,7 @@ export default function PlayPage() {
       // 檢查是否已觸發跳嚇（激活監控的前置條件）
       if (!state.flags.jump_scare_triggered) {
         setCurrentDialog({
-          text: '監控螢幕突然亮起。也許你應該先探索房間的其他地方。',
+          text: '監控螢幕只有雪花與雜訊，像還沒被授權訊號。房裡先有別的事「開啟」了，畫面才會被允許亮起。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -923,7 +932,7 @@ export default function PlayPage() {
       // 檢查是否已獲得線索（獲得手把的前置條件）
       if (!state.flags.handle_location_revealed) {
         setCurrentDialog({
-          text: '沙發的縫隙裡似乎有什麼東西，但你看不清楚。也許你應該先查看其他線索。',
+          text: '縫隙深處有金屬的反光，但你還不敢伸手。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -965,7 +974,7 @@ export default function PlayPage() {
       if (!state.inventory.includes('door_handle')) {
         // 沒有手把，顯示提示
         setCurrentDialog({
-          text: '落地窗被鎖住了，需要手把才能打開。\n\n手把可能在房間的某個角落，或者被藏在某個地方。',
+          text: '落地窗咬著。鎖孔在等一個形狀。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -995,12 +1004,12 @@ export default function PlayPage() {
                                state.inventory.includes('rust_remover');
       if (hasRequiredItems) {
         setCurrentDialog({
-          text: '欄杆上有許多固定點，但單一固定點無法承受你的體重。你需要選擇多個固定點形成支撐系統。前往垂降點，根據你收集的線索選擇正確的固定點組合。',
+          text: '欄杆上很多扣，像很多個「可以」在等你選錯。',
           type: 'narrator',
         });
       } else {
         setCurrentDialog({
-          text: '欄杆上有固定點，但你需要收集更多線索才能判斷哪些是安全的。檢查你收集的道具。',
+          text: '鐵的語氣還不夠清楚。',
           type: 'narrator',
         });
       }
@@ -1063,18 +1072,11 @@ export default function PlayPage() {
           setRefreshKey(prev => prev + 1);
           return;
         } else {
-          // 提供更詳細的提示
-          const missingRequirements: string[] = [];
-          if (!state.flags.label_read) {
-            missingRequirements.push('查看冷鏈運輸標籤');
-          }
-          if (!state.flags.pain_patch_found) {
-            missingRequirements.push('查看止痛貼片盒');
-          }
           setCurrentDialog({
-            text: missingRequirements.length > 0 
-              ? `你需要先${missingRequirements.join('和')}，才能了解這些箱子的用途和排序規則。`
-              : '你需要先了解這些箱子的用途和排序規則。',
+            text:
+              !state.flags.label_read || !state.flags.pain_patch_found
+                ? '標籤與痛還沒對上號。'
+                : '箱子在等你排隊。',
             type: 'narrator',
           });
           setRefreshKey(prev => prev + 1);
@@ -1097,7 +1099,7 @@ export default function PlayPage() {
       }
       if (!state.flags.boxes_arranged) {
         setCurrentDialog({
-          text: '你需要先按照優先級排列這些箱子。',
+          text: '順序不對，箱扣不會說話。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1122,7 +1124,7 @@ export default function PlayPage() {
       const state = engine.getState();
       if (!state.flags.final_password_revealed && !state.flags.coordinates_revealed) {
         setCurrentDialog({
-          text: '逃生口需要座標密碼才能打開。請輸入座標密碼。你需要先完成拼箱排序或查看身份證背面。',
+          text: '鎖孔還在等一組五位數。紙上或箱側，總有一處寫過。',
           type: 'narrator',
         });
         setRefreshKey(prev => prev + 1);
@@ -1226,40 +1228,6 @@ export default function PlayPage() {
       }
     }
     
-    // 第二空間特殊處理：鏡片碎角（用於病床）
-    if (itemId === 'mirror_shard' && scene?.id === 'ch1_sc2') {
-      const state = engine.getState();
-      // 檢查是否已經使用過（已觀察病床）
-      if (state.flags.beds_labels_revealed) {
-        // 已經使用過，顯示包含觀察結果的道具描述
-        const item = scene?.items.find(i => i.id === itemId);
-        setCurrentDialog({
-          text: `${item?.name || '鏡片碎角'}\n\n${item?.description || ''}\n\n透過鏡片碎角的反射，你看到每張病床上都有模糊的標籤：「護理師」、「住院」、「主治」、「主任」。\n\n這些標籤有什麼意義嗎?`,
-          type: 'item',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-      // 檢查是否已與病床互動
-      if (state.interactions.includes('beds')) {
-        // 已與病床互動，觸發使用事件
-        const result = engine.triggerEvent('use_mirror_shard_on_beds');
-        if (result?.dialog) {
-          setCurrentDialog(result.dialog);
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      } else {
-        // 未與病床互動，提示先觀察病床
-        setCurrentDialog({
-          text: '你需要在病床附近使用這個道具。先點擊病床觀察一下。',
-          type: 'narrator',
-        });
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
-    
     // 第三空間特殊處理：同意書（查看背面線索）
     if (itemId === 'consent_form' && scene?.id === 'ch1_sc3') {
       const state = engine.getState();
@@ -1311,19 +1279,6 @@ export default function PlayPage() {
       const result = engine.triggerEvent('read_id_back');
       if (result?.dialog) {
         setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
-    
-    // 第五空間特殊處理：座標（顯示座標位置）
-    if (itemId === 'coordinates') {
-      const item = items[itemId];
-      if (item) {
-        setCurrentDialog({
-          text: `**座標**\n\n**${item.description}**\n\n這是從拼箱排序中獲得的座標。`,
-          type: 'item',
-        });
         setRefreshKey(prev => prev + 1);
         return;
       }
@@ -1694,6 +1649,42 @@ export default function PlayPage() {
         </div>
       </div>
 
+      {/* 首次進場幕間（關閉後由 useEffect 顯示 initialDialog） */}
+      {scene?.sceneCard && !state.flags[`intro_seen_${scene.id}`] && (
+        <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center p-6 bg-black/85 backdrop-blur-sm">
+          <div className="max-w-md text-center space-y-4">
+            <h2 className="text-xl font-medium text-gray-100 tracking-wide">{scene.sceneCard.title}</h2>
+            {scene.sceneCard.lines.map((line, i) => (
+              <p key={i} className="text-sm text-gray-400 leading-relaxed">
+                {line}
+              </p>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                if (!engineRef.current || !scene) return;
+                engineRef.current.applyEffect({
+                  type: 'setFlag',
+                  flag: `intro_seen_${scene.id}`,
+                  value: true,
+                });
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.setItem('gameState', JSON.stringify(engineRef.current.getState()));
+                  } catch (e) {
+                    console.warn('無法保存遊戲狀態:', e);
+                  }
+                }
+                setRefreshKey((prev) => prev + 1);
+              }}
+              className="mt-6 px-8 py-3 rounded-lg bg-dark-card border border-dark-border text-gray-200 hover:text-white hover:border-gray-500 transition-colors text-sm"
+            >
+              繼續
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 對話框 - 底部浮動 */}
       {currentDialog && (
         <DialogBox
@@ -1908,13 +1899,11 @@ export default function PlayPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
-              <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 701</h3>
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">門縫</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                門已經打開。走廊的冷白色燈光從門縫中透進來，你聽到遠處傳來微弱的聲音。
+                冷白燈光從縫裡漏進來，像另一層皮膚。遠處有聲音，不確定是風還是廣播。
               </p>
-              <p className="mt-4 text-sm text-gray-300 font-medium">
-                你要離開病房 701，前往走廊嗎？
-              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">要跨過這條光嗎？</p>
             </div>
             
             <div className="flex gap-3">
@@ -1942,13 +1931,13 @@ export default function PlayPage() {
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
               >
-                前往走廊
+                出去
               </button>
               <button
                 onClick={() => setShowDoor701Confirm(false)}
                 className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
               >
-                再等等
+                留著
               </button>
             </div>
           </div>
@@ -1960,13 +1949,11 @@ export default function PlayPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
-              <h3 className="text-xl font-semibold text-gray-200 mb-2">702號病房</h3>
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">另一間</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                門已經打開。你聽到裡面傳來微弱的聲音，像是有人在低語。
+                門後的靜止太厚。裡面有極低的人聲，像被錄音又播壞了。
               </p>
-              <p className="mt-4 text-sm text-gray-300 font-medium">
-                你要進入702號病房嗎？
-              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">進去？</p>
             </div>
             
             <div className="flex gap-3">
@@ -1994,13 +1981,13 @@ export default function PlayPage() {
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
               >
-                進入
+                進去
               </button>
               <button
                 onClick={() => setShowDoor702Confirm(false)}
                 className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
               >
-                再等等
+                留著
               </button>
             </div>
           </div>
@@ -2012,13 +1999,11 @@ export default function PlayPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
-              <h3 className="text-xl font-semibold text-gray-200 mb-2">垂降到二樓露台</h3>
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">風在接你</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                你已經成功垂降到二樓露台。風很大，吹得你眼睛發乾。
+                腳下空了。風把眼淚吹乾，也把距離吹得很薄。
               </p>
-              <p className="mt-4 text-sm text-gray-300 font-medium">
-                要進入下一段嗎？
-              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">落地之後，還要往前嗎？</p>
             </div>
             
             <div className="flex gap-3">
@@ -2046,13 +2031,13 @@ export default function PlayPage() {
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
               >
-                進入二樓露台
+                放手
               </button>
               <button
                 onClick={() => setShowDescendConfirm(false)}
                 className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
               >
-                再等等
+                停著
               </button>
             </div>
           </div>
@@ -2064,13 +2049,11 @@ export default function PlayPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-gradient-to-br from-dark-card to-dark-surface border-2 border-dark-border rounded-2xl p-6 md:p-8 max-w-[min(600px,100vmin)] w-full shadow-2xl">
             <div className="mb-6">
-              <h3 className="text-xl font-semibold text-gray-200 mb-2">離開病房 702</h3>
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">邊框之外</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                窗戶已經打開。外面的風吹進來，帶著鐵鏽和消毒水的味道。陽台在下方等待著你。
+                風帶進鐵鏽與消毒水。欄杆外還有一層空，像另一張皮。
               </p>
-              <p className="mt-4 text-sm text-gray-300 font-medium">
-                你要離開病房 702，前往陽台嗎？
-              </p>
+              <p className="mt-4 text-sm text-gray-300 font-medium">跨出去？</p>
             </div>
             
             <div className="flex gap-3">
@@ -2098,13 +2081,13 @@ export default function PlayPage() {
                 }}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
               >
-                離開
+                跨出去
               </button>
               <button
                 onClick={() => setShowWindow702Confirm(false)}
                 className="flex-1 px-6 py-3 bg-dark-surface hover:bg-dark-border border-2 border-dark-border rounded-lg text-gray-300 hover:text-white transition-all duration-200"
               >
-                再等等
+                留著
               </button>
             </div>
           </div>

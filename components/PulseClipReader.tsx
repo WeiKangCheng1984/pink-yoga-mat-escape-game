@@ -54,7 +54,7 @@ export default function PulseClipReader({ onClose, onBroadcast }: PulseClipReade
             <div className="p-2 bg-red-600/20 rounded-lg">
               <Activity size={24} className="text-red-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-200">脈搏夾</h3>
+            <h3 className="text-xl font-semibold text-gray-200">一次性指尖脈搏夾</h3>
           </div>
           <button
             onClick={onClose}

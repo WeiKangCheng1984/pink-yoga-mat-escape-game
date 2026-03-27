@@ -65,6 +65,11 @@ export interface Puzzle {
   options?: Array<{ id: string; label: string; description?: string; visual?: string }>; // 視覺化選擇謎題的選項
 }
 
+export interface SceneCard {
+  title: string;
+  lines: string[];
+}
+
 export interface Scene {
   id: string;
   chapterId: string;
@@ -76,6 +81,8 @@ export interface Scene {
   events: Event[];
   puzzles: Puzzle[];
   initialDialog?: Dialog;
+  /** 首次進入場景時顯示的短幕（關閉後才出現 initialDialog） */
+  sceneCard?: SceneCard;
   ambientAudio?: string;
   hotspotEventMap?: Record<string, string>; // hotspot ID -> event ID 映射表
 }
