@@ -1415,7 +1415,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**遊戲結束**\n\n感謝你的遊玩。',
+              text: '**遊戲結束**',
               type: 'system',
             },
           },

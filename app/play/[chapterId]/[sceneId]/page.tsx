@@ -18,6 +18,14 @@ import Link from 'next/link';
 import { audioManager } from '@/lib/audioManager';
 import { scenes, chapters, items } from '@/data/gameData';
 import DeveloperPanel from '@/components/DeveloperPanel';
+import SceneClearFeedback from '@/components/SceneClearFeedback';
+import {
+  sceneClearCopy,
+  SCENE_CLEAR_SFX_PATH,
+  ENDING_IMAGE_PATH,
+  endingScreenCopy,
+  type SceneClearKey,
+} from '@/lib/copy';
 
 export default function PlayPage() {
   const params = useParams();
@@ -68,6 +76,30 @@ export default function PlayPage() {
   const [showDeveloperPanel, setShowDeveloperPanel] = useState(false);
   const sceneViewRef = useRef<SceneViewRef>(null);
   const isDescendPuzzleCompleteRef = useRef(false);
+  const [sceneClearFeedback, setSceneClearFeedback] = useState<{
+    id: number;
+    title: string;
+    subtitle?: string;
+  } | null>(null);
+  const [endingImageError, setEndingImageError] = useState(false);
+
+  const triggerSceneClear = useCallback((key: SceneClearKey, delayMs = 0) => {
+    const payload = sceneClearCopy[key];
+    const run = () => {
+      audioManager.playSFX(SCENE_CLEAR_SFX_PATH, 0.45);
+      sceneViewRef.current?.triggerFlicker('light');
+      setSceneClearFeedback({
+        id: Date.now(),
+        title: payload.title,
+        subtitle: payload.subtitle,
+      });
+    };
+    if (delayMs > 0) {
+      window.setTimeout(run, delayMs);
+    } else {
+      run();
+    }
+  }, []);
 
   // 添加對話到隊列（需要在 handleItemCollection 之前定義）
   const addDialogsToQueue = useCallback((dialogs: Dialog[]) => {
@@ -324,6 +356,12 @@ export default function PlayPage() {
       setShowDeveloperPanel(true);
     }
   }, [devMode]);
+
+  useEffect(() => {
+    if (showGameEnd) {
+      setEndingImageError(false);
+    }
+  }, [showGameEnd]);
 
   // 根據 URL 初始化狀態（如果狀態與 URL 不一致）
   useEffect(() => {
@@ -1355,6 +1393,17 @@ export default function PlayPage() {
     if (solved) {
       setPuzzleError(''); // 清除錯誤提示
       setCurrentPuzzle(null);
+
+      // 主線通關短回饋（不取代既有旁白／廣播）
+      if (scene?.id === 'ch1_sc1' && currentPuzzle.id === 'door_code') {
+        triggerSceneClear('milestone_door_701');
+      } else if (scene?.id === 'ch1_sc2' && currentPuzzle.id === 'bed_arrangement') {
+        triggerSceneClear('milestone_beds', 500);
+      } else if (scene?.id === 'ch1_sc4' && currentPuzzle.id === 'descend') {
+        triggerSceneClear('milestone_descend');
+      } else if (scene?.id === 'ch1_sc5' && currentPuzzle.id === 'box_arrangement') {
+        triggerSceneClear('milestone_boxes');
+      }
       
       // 獲取解決後的狀態（engine.solvePuzzle 已經應用了效果）
       const newState = engine.getState();
@@ -1485,7 +1534,16 @@ export default function PlayPage() {
       // 錯誤提示 - 在謎題組件內部顯示
       setPuzzleError('答案不正確，再試試看。');
     }
-  }, [currentPuzzle, scene, chapterId, sceneId, router]); // engine 來自 useRef，不需要在依賴中
+  }, [
+    currentPuzzle,
+    scene,
+    chapterId,
+    sceneId,
+    router,
+    triggerSceneClear,
+    addDialogsToQueue,
+    handleBroadcast,
+  ]); // engine 來自 useRef，不需要在依賴中
 
 
   if (!scene) {
@@ -1809,32 +1867,39 @@ export default function PlayPage() {
 
       {/* 遊戲結束畫面 */}
       {showGameEnd && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
-          <div className="relative w-full h-full flex items-center justify-center">
-            {/* 結束圖片 */}
-            <div className="w-full h-full flex items-center justify-center bg-black">
-              <img 
-                src="/images/ending_image.webp" 
-                alt="遊戲結束" 
-                className="max-w-full max-h-full object-contain"
-                onError={(e) => {
-                  // 如果圖片載入失敗，顯示備用文字
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<div class="text-gray-300 text-center"><p class="text-lg mb-4">遊戲結束</p><p class="text-sm text-gray-400">感謝你的遊玩</p></div>';
-                  }
-                }}
-              />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/95 p-4 backdrop-blur-md">
+          <div className="relative flex w-full max-w-lg flex-col items-stretch gap-6 py-8">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold tracking-wide text-gray-200">
+                {endingScreenCopy.heading}
+              </h2>
             </div>
-            {/* 關閉按鈕 */}
+            <div className="flex min-h-[120px] justify-center">
+              {!endingImageError ? (
+                <img
+                  src={ENDING_IMAGE_PATH}
+                  alt=""
+                  className="max-h-[min(50vh,420px)] w-full max-w-md object-contain"
+                  onError={() => setEndingImageError(true)}
+                />
+              ) : (
+                <div className="max-w-md rounded-lg border border-dark-border/60 bg-dark-surface/80 px-6 py-10 text-center text-gray-300">
+                  <p className="text-lg font-medium">遊戲結束</p>
+                  <p className="mt-2 text-sm text-gray-400">{endingScreenCopy.thanksLine}</p>
+                </div>
+              )}
+            </div>
+            <div className="space-y-3 text-center text-sm leading-relaxed text-gray-400">
+              {endingScreenCopy.paragraphs.map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+            </div>
+            <p className="text-center text-xs text-gray-500">{endingScreenCopy.creditLine}</p>
+            <p className="text-center text-sm text-gray-300">{endingScreenCopy.thanksLine}</p>
             <button
+              type="button"
               onClick={() => {
-                // 清除遊戲狀態
                 if (engineRef.current) {
-                  const engine = engineRef.current;
-                  // 清除 localStorage 中的遊戲狀態
                   if (typeof window !== 'undefined') {
                     localStorage.removeItem('gameState');
                   }
@@ -1843,12 +1908,21 @@ export default function PlayPage() {
                 gameEndShownRef.current = false;
                 router.push('/');
               }}
-              className="absolute bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg z-[10000]"
+              className="mx-auto mt-2 px-6 py-3 bg-dark-surface/90 backdrop-blur-md border border-dark-border/50 rounded-lg text-gray-300 hover:text-white hover:bg-dark-surface transition-all duration-200 shadow-lg"
             >
               返回首頁
             </button>
           </div>
         </div>
+      )}
+
+      {sceneClearFeedback && (
+        <SceneClearFeedback
+          key={sceneClearFeedback.id}
+          title={sceneClearFeedback.title}
+          subtitle={sceneClearFeedback.subtitle}
+          onDismiss={() => setSceneClearFeedback(null)}
+        />
       )}
 
       {/* 放棄遊戲確認對話框 */}
@@ -2066,6 +2140,7 @@ export default function PlayPage() {
               <button
                 onClick={() => {
                   setShowWindow702Confirm(false);
+                  triggerSceneClear('milestone_window_702');
                   // 切換到第四空間
                   if (engineRef.current) {
                     engineRef.current.applyEffect({

@@ -7,7 +7,7 @@
 export default function HomeBackground() {
   return (
     <div
-      className="absolute inset-0 overflow-hidden pointer-events-none"
+      className="absolute inset-0 overflow-hidden pointer-events-none home-bg-breathe"
       aria-hidden
     >
       <svg

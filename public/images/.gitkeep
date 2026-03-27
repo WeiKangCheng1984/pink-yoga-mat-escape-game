@@ -7,3 +7,5 @@
 - bg_ch1_sc4_v1.png
 - bg_ch1_sc5_v1.png
 
+結局全螢幕圖（可選，缺檔時 UI 有文字備援）：`ending_image.webp`（路徑：`lib/copy.ts` 的 `ENDING_IMAGE_PATH`）
+

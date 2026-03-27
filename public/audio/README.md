@@ -11,6 +11,7 @@ public/audio/
 │   ├── ambient_balcony.mp3            # 陽台環境音（第四空間）
 │   └── ambient_terrace.mp3            # 露台環境音（第五空間）
 ├── sfx/              # 互動音效（一次性）
+│   ├── sfx_scene_clear.mp3           # 主線通關短回饋（全場景，見 lib/copy.ts SCENE_CLEAR_SFX_PATH）
 │   ├── sfx_drawer_open.mp3           # 抽屜打開（第一空間）
 │   ├── sfx_metal.mp3                 # 金屬聲（第一空間：門）
 │   ├── sfx_paper_rustle.mp3           # 紙張翻動（第二空間：值班表）
