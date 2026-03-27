@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { GameEngine, migrateGameState } from '@/lib/gameEngine';
 import { Dialog } from '@/types/game';
 import SceneView, { SceneViewRef } from '@/components/SceneView';
@@ -170,8 +170,14 @@ export default function PlayPage() {
     
     // 步驟3：檢查事件是否會添加道具，或為「僅旗標」敘事拾取（如鏡片碎角）
     const addItemEffects = event.effects.filter((e: any) => e.type === 'addItem');
-    const flagOnlyPickupIds = new Set(['pickup_mirror_shard']);
-    if (addItemEffects.length === 0 && !flagOnlyPickupIds.has(eventId)) {
+    const narrativeOnlyEventIds = new Set([
+      'pickup_mirror_shard',
+      'read_duty_schedule',
+      'pickup_diary',
+      'pickup_consent_form',
+      'pickup_cold_label',
+    ]);
+    if (addItemEffects.length === 0 && !narrativeOnlyEventIds.has(eventId)) {
       return false;
     }
     if (eventId === 'pickup_mirror_shard' && state.flags.has_mirror_shard) {
@@ -458,6 +464,23 @@ export default function PlayPage() {
     state = engineRef.current.getState();
   }
 
+  // 701：左下角藏匿熱點僅在「沾血小鑰匙 + 801 紙卡」且尚未拾取時顯示（無 hint，與其他框同為透明可點區）
+  const sceneForView = useMemo(() => {
+    if (!scene || scene.id !== 'ch1_sc1') return scene;
+    const st = engineRef.current?.getState();
+    if (!st) return scene;
+    const showCorner =
+      st.inventory.includes('bloody_key') &&
+      st.inventory.includes('mirror_hint_card') &&
+      !st.flags.bed_cache_looted;
+    return {
+      ...scene,
+      hotspots: scene.hotspots.filter((h) =>
+        h.id !== 'bed_corner_cache' ? true : showCorner
+      ),
+    };
+  }, [scene, refreshKey]);
+
   // 進入場景時播放環境音
   useEffect(() => {
     if (scene?.id === 'ch1_sc1') {
@@ -636,6 +659,32 @@ export default function PlayPage() {
       return;
     }
 
+
+    // 第一空間：左下角藏匿（需沾血小鑰匙 + 801 紙卡；熱點僅在條件滿足時顯示）
+    if (hotspotId === 'bed_corner_cache' && scene?.id === 'ch1_sc1') {
+      engine.addInteraction('bed_corner_cache');
+      const st = engine.getState();
+      if (st.flags.bed_cache_looted) {
+        setCurrentDialog({
+          text: '膠帶被撕開過的痕還在，但縫裡已經什麼都不剩——除了你自己的呼吸聲。',
+          type: 'narrator',
+        });
+        setRefreshKey((prev) => prev + 1);
+        return;
+      }
+      const result = engine.triggerEvent('corner_cache_loot');
+      if (result) {
+        const dialogEffects = result.effects.filter((e: any) => e.type === 'showDialog');
+        const dialogs: Dialog[] = [];
+        dialogEffects.forEach((e: any) => {
+          if (e.dialog) dialogs.push(e.dialog);
+        });
+        if (dialogs.length > 0) addDialogsToQueue(dialogs);
+        else if (result.dialog) setCurrentDialog(result.dialog);
+      }
+      setRefreshKey((prev) => prev + 1);
+      return;
+    }
 
     // 特殊處理：抽屜互動
     if (hotspotId === 'drawer') {
@@ -852,11 +901,10 @@ export default function PlayPage() {
       }
     }
 
-    // 第二空間特殊處理：值班表（如果已經有便條，觸發重新閱讀事件）
+    // 第二空間特殊處理：值班表（若已讀過背面，觸發重新閱讀事件）
     if (hotspotId === 'duty_schedule' && scene?.id === 'ch1_sc2') {
       const state = engine.getState();
-      // 如果已經有便條，直接顯示內容（重新閱讀）
-      if (state.inventory.includes('note')) {
+      if (state.flags.duty_note_read) {
         const result = engine.triggerEvent('read_note');
         if (result?.dialog) {
           setCurrentDialog(result.dialog);
@@ -864,9 +912,43 @@ export default function PlayPage() {
           return;
         }
       }
-      // 如果沒有便條，會由 handleItemCollection 處理
     }
 
+    // 第三空間：枕頭（已取得日記後可重讀）
+    if (hotspotId === 'pillow' && scene?.id === 'ch1_sc3') {
+      const state = engine.getState();
+      if (state.flags.diary_read) {
+        engine.addInteraction('pillow');
+        const result = engine.triggerEvent('read_diary');
+        if (result?.dialog) {
+          setCurrentDialog(result.dialog);
+          setRefreshKey((prev) => prev + 1);
+          return;
+        }
+      }
+    }
+
+    // 第三空間：床頭櫃（同意書背面線索）
+    if (hotspotId === 'bedside_table' && scene?.id === 'ch1_sc3') {
+      const state = engine.getState();
+      if (state.flags.handle_location_revealed) {
+        setCurrentDialog({
+          text: '抽屜邊角還留著紙張被抽出的摩擦聲。背面的鉛筆字，你早就記住了。',
+          type: 'narrator',
+        });
+        setRefreshKey((prev) => prev + 1);
+        return;
+      }
+      if (state.flags.consent_form_found && state.flags.diary_read) {
+        engine.addInteraction('bedside_table');
+        const result = engine.triggerEvent('examine_consent_form');
+        if (result?.dialog) {
+          setCurrentDialog(result.dialog);
+          setRefreshKey((prev) => prev + 1);
+          return;
+        }
+      }
+    }
 
     // 第三空間特殊處理：衣櫃
     if (hotspotId === 'wardrobe' && scene?.id === 'ch1_sc3') {
@@ -1039,7 +1121,7 @@ export default function PlayPage() {
     if ((hotspotId === 'fixed_point_1' || hotspotId === 'fixed_point_2') && scene?.id === 'ch1_sc4') {
       const state = engine.getState();
       const hasRequiredItems = state.inventory.includes('blank_nameplate') && 
-                               state.inventory.includes('ceramic_shard') && 
+                               state.flags.toolbox_opened === true && 
                                state.inventory.includes('rust_remover');
       if (hasRequiredItems) {
         setCurrentDialog({
@@ -1070,7 +1152,7 @@ export default function PlayPage() {
       
       // 檢查是否有必要的道具
       const hasRequiredItems = state.inventory.includes('blank_nameplate') && 
-                               state.inventory.includes('ceramic_shard') && 
+                               state.flags.toolbox_opened === true && 
                                state.inventory.includes('rust_remover');
       if (!hasRequiredItems) {
         setCurrentDialog({
@@ -1251,80 +1333,77 @@ export default function PlayPage() {
       });
       setRefreshKey(prev => prev + 1);
     }
-  }, [scene, handleItemCollection]); // engine 來自 useRef，不需要在依賴中
+  }, [scene, handleItemCollection, addDialogsToQueue]);
 
   const handleItemClick = useCallback((itemId: string) => {
     if (!engineRef.current) return;
     const engine = engineRef.current;
     
-    // 第二空間特殊處理：便條（觸發閱讀事件）
-    if (itemId === 'note' && scene?.id === 'ch1_sc2') {
-      const result = engine.triggerEvent('read_note');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
-    
-    // 第三空間特殊處理：同意書（查看背面線索）
-    if (itemId === 'consent_form' && scene?.id === 'ch1_sc3') {
+    // 801 紙卡：首次點擊加強提示
+    if (itemId === 'mirror_hint_card') {
       const state = engine.getState();
-      // 檢查是否已閱讀日記
-      if (state.flags.diary_read) {
-        // 已閱讀日記，觸發查看背面事件
-        const result = engine.triggerEvent('examine_consent_form');
-        if (result?.dialog) {
-          setCurrentDialog(result.dialog);
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
-      } else {
-        // 未閱讀日記，顯示普通描述
-        const item = scene?.items.find(i => i.id === itemId);
-        if (item) {
-          setCurrentDialog({
-            text: item.description,
-            type: 'item',
-          });
-          setRefreshKey(prev => prev + 1);
-          return;
-        }
+      if (!state.flags.mirror_hint_card_studied) {
+        engine.applyEffect({ type: 'setFlag', flag: 'mirror_hint_card_studied', value: true });
+        setCurrentDialog({
+          text:
+            `${items.mirror_hint_card.description}\n\n你把紙邊壓平——**701**、**床底**、**沾血小鑰匙**。像有人在走廊就替你畫好折返線。`,
+          type: 'item',
+        });
+        setRefreshKey((prev) => prev + 1);
+        return;
       }
+      setCurrentDialog({
+        text: items.mirror_hint_card.description,
+        type: 'item',
+      });
+      setRefreshKey((prev) => prev + 1);
+      return;
+    }
+
+    // 軍牌：全文
+    if (itemId === 'dog_tags') {
+      setCurrentDialog({
+        text:
+          '兩片金屬敲在一起，像很小的手銬聲。\n\n**姓名：**（銼掉，只剩刮痕）\n**血型：** O\n**編號：** RUNNER-07\n**單位：** 國軍特種作戰支援大隊（番號已磨損）\n**備註：** 體能評級 A；適用「長程運輸」標籤\n\n你瞪著那行字。不是病歷，是規格表。',
+        type: 'item',
+      });
+      setRefreshKey((prev) => prev + 1);
+      return;
+    }
+
+    // 軍事履歷：全文
+    if (itemId === 'military_dossier') {
+      setCurrentDialog({
+        text:
+          '**軍事履歷（節錄）**\n\n**役期：** 第 12 年（起算日塗黑）\n**職類：** 特種訓練教官／近身戰術組\n**駐地：** 北部（細節塗黑）\n**主要任務：** 新訓篩選、體能極限測試、戰場自救課程\n**獎懲：** 功勳欄留白；備註欄有人用鉛筆寫「可承受高壓流程」——像貨品檢驗。\n\n最後一行不是簽名，是蓋章：**「可轉移資產」**。\n\n你讀完才發現：他們從來不是在徵兵，是在挑「耐不耐用」。',
+        type: 'item',
+      });
+      setRefreshKey((prev) => prev + 1);
+      return;
     }
     
-    // 第三空間特殊處理：錄音筆（播放錄音）
-    if (itemId === 'recorder' && scene?.id === 'ch1_sc3') {
-      const result = engine.triggerEvent('play_recorder');
+    // 錄音筆：事件定義在 ch1_sc3，背包任意場景皆可播放
+    if (itemId === 'recorder') {
+      const result = engine.triggerEventInScene('ch1_sc3', 'play_recorder');
       if (result?.dialog) {
         setCurrentDialog(result.dialog);
         setRefreshKey(prev => prev + 1);
         return;
       }
     }
-    
-    // 第三空間特殊處理：日記本（閱讀日記）
-    if (itemId === 'diary' && scene?.id === 'ch1_sc3') {
-      const result = engine.triggerEvent('read_diary');
+
+    // 身份證背面：事件定義在 ch1_sc5，背包任意場景皆可閱讀
+    if (itemId === 'id_card') {
+      const result = engine.triggerEventInScene('ch1_sc5', 'read_id_back');
       if (result?.dialog) {
         setCurrentDialog(result.dialog);
         setRefreshKey(prev => prev + 1);
         return;
       }
     }
-    
-    // 第五空間特殊處理：身份證（查看背面座標）
-    if (itemId === 'id_card' && scene?.id === 'ch1_sc5') {
-      const result = engine.triggerEvent('read_id_back');
-      if (result?.dialog) {
-        setCurrentDialog(result.dialog);
-        setRefreshKey(prev => prev + 1);
-        return;
-      }
-    }
-    
-    // 第五空間特殊處理：止痛貼片盒（查看背面線索）
-    if (itemId === 'pain_patch' && scene?.id === 'ch1_sc5') {
+
+    // 止痛貼片盒（查看背面線索／已讀提示）
+    if (itemId === 'pain_patch') {
       const state = engine.getState();
       if (!state.flags.pain_patch_found) {
         setCurrentDialog({
@@ -1352,7 +1431,7 @@ export default function PlayPage() {
       } else if (result.dialog) {
         setCurrentDialog(result.dialog);
       } else {
-        const item = scene?.items.find(i => i.id === itemId);
+        const item = items[itemId] ?? scene?.items.find(i => i.id === itemId);
         if (item) {
           setCurrentDialog({
             text: item.description,
@@ -1361,7 +1440,7 @@ export default function PlayPage() {
         }
       }
     } else {
-      const item = scene?.items.find(i => i.id === itemId);
+      const item = items[itemId] ?? scene?.items.find(i => i.id === itemId);
       if (item) {
         setCurrentDialog({
           text: item.description,
@@ -1370,7 +1449,7 @@ export default function PlayPage() {
       }
     }
     setRefreshKey(prev => prev + 1);
-  }, [scene]); // engine 來自 useRef，不需要在依賴中
+  }, []); // 道具敘事以全域 items 為準，不依賴當前場景
 
   const handlePuzzleSolve = useCallback((input: string | string[]) => {
     if (!currentPuzzle || !engineRef.current) return;
@@ -1680,7 +1759,7 @@ export default function PlayPage() {
           <div className="relative w-full aspect-square bg-dark-surface/30 backdrop-blur-sm rounded-2xl overflow-hidden border border-dark-border/50 shadow-2xl">
             <SceneView
               ref={sceneViewRef}
-              scene={scene}
+              scene={sceneForView ?? scene}
               onHotspotClick={handleHotspotClick}
               debug={debug}
               interactionCount={interactionCount}

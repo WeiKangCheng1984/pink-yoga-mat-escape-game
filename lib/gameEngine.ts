@@ -15,11 +15,15 @@ export function migrateGameState(state: GameState): GameState {
   }
 
   const ghostToFlags: { item: string; set: Record<string, boolean> }[] = [
-    { item: 'rusty_hairpin', set: { has_hairpin: true } },
     { item: 'blood_number', set: {} },
     { item: 'coordinates', set: { coordinates_revealed: true } },
     { item: 'termination_notice', set: { jump_scare_triggered: true } },
     { item: 'runner_bracelet', set: { bracelet_found: true } },
+    { item: 'note', set: { duty_note_read: true } },
+    { item: 'consent_form', set: { consent_form_found: true } },
+    { item: 'diary', set: { diary_read: true } },
+    { item: 'ceramic_shard', set: { toolbox_opened: true } },
+    { item: 'cold_chain_label', set: { label_read: true } },
   ];
 
   for (const { item, set } of ghostToFlags) {
@@ -138,32 +142,38 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 依「指定場景」查找並執行事件（供背包跨場景使用，不切換 currentScene）
+   */
+  triggerEventInScene(sceneId: string, eventId: string): { effects: Effect[]; dialog?: any } | null {
+    const scene = scenes[sceneId] || null;
+    return this.runEventInScene(scene, eventId);
+  }
+
   triggerEvent(eventId: string): { effects: Effect[]; dialog?: any } | null {
-    const scene = this.getCurrentScene();
+    return this.runEventInScene(this.getCurrentScene(), eventId);
+  }
+
+  private runEventInScene(scene: Scene | null, eventId: string): { effects: Effect[]; dialog?: any } | null {
     if (!scene) return null;
 
     const event = scene.events.find(e => e.id === eventId);
     if (!event) return null;
 
-    // 檢查是否已觸發過（如果是 oneTime）
     if (event.oneTime && this.hasInteracted(eventId)) {
       return null;
     }
 
-    // 檢查需求
     if (!this.checkEventRequirements(event)) {
       return null;
     }
 
-    // 標記為已互動
     if (event.oneTime) {
       this.state.interactions.push(eventId);
     }
 
-    // 應用效果
     event.effects.forEach(effect => this.applyEffect(effect));
 
-    // 找出對話效果
     const dialogEffect = event.effects.find(e => e.type === 'showDialog');
 
     return {

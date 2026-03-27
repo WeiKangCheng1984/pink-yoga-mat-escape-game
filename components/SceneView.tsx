@@ -241,7 +241,7 @@ const SceneView = forwardRef<SceneViewRef, SceneViewProps>(
               ${isHovered && !debug ? 'bg-white/5' : ''}
               ${isClicked ? 'bg-white/10 scale-95' : ''}
             `}
-            title={debug ? `${hotspot.id}: ${hotspot.description || ''}` : hotspot.hint}
+            title={debug ? `${hotspot.id}: ${hotspot.description || ''}` : hotspot.hint ?? ''}
           >
             {/* Debug 標籤 */}
             {debug && (

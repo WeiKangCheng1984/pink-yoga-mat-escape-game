@@ -22,6 +22,12 @@ export const items: Record<string, Item> = {
     description: '太乾淨了，乾淨得像被反覆擦拭。',
     collectible: true,
   },
+  'rusty_hairpin': {
+    id: 'rusty_hairpin',
+    name: '生鏽髮夾',
+    description: '藏在粉紅捲芯裡的金屬，冷得像不肯認錯的記憶。',
+    collectible: true,
+  },
   'bloody_key': {
     id: 'bloody_key',
     name: '沾血小鑰匙',
@@ -40,7 +46,15 @@ export const items: Record<string, Item> = {
     id: 'note',
     name: '值班表背面的便條',
     description: '主任只簽同意書，不親手執行。',
+    collectible: false,
+  },
+  'mirror_hint_card': {
+    id: 'mirror_hint_card',
+    name: '801 紙卡',
+    description:
+      '從鏡後滑落的硬紙卡，邊緣有摩擦痕。\n\n**HINT：** 回 **701**，俯身看 **病床底下**。那裡貼著膠帶與灰——需要 **沾血小鑰匙** 才能刮開一道縫，把東西取出。',
     collectible: true,
+    usable: true,
   },
   // 第三空間：病房 702
   'recorder': {
@@ -54,14 +68,14 @@ export const items: Record<string, Item> = {
     id: 'consent_form',
     name: '撕裂的同意書一角',
     description: '你從沒同意任何事，但他們的文件總會替你點頭。',
-    collectible: true,
+    collectible: false,
   },
   'diary': {
     id: 'diary',
     name: '日記本',
     description: '有人在觀察你，還替你寫傳記。',
-    collectible: true,
-    usable: true,
+    collectible: false,
+    usable: false,
   },
   'door_handle': {
     id: 'door_handle',
@@ -93,7 +107,22 @@ export const items: Record<string, Item> = {
     id: 'ceramic_shard',
     name: '陶瓷破片',
     description: '像潔白的凶器。\n\n邊緣刻著細小的字：R=REINFORCED, T=TEMPORARY',
+    collectible: false,
+  },
+  'dog_tags': {
+    id: 'dog_tags',
+    name: '軍牌',
+    description:
+      '兩片金屬敲在一起，像很小的手銬聲。\n\n**姓名：**（銼掉）\n**血型：** O\n**編號：** RUNNER-07 / 特種作戰支援\n**宗教：** 無',
     collectible: true,
+    usable: true,
+  },
+  'military_dossier': {
+    id: 'military_dossier',
+    name: '軍事履歷（節錄）',
+    description: '摺痕很深，像被人反覆打開又闔上。',
+    collectible: true,
+    usable: true,
   },
   
   // 第五空間：二樓露台
@@ -101,7 +130,7 @@ export const items: Record<string, Item> = {
     id: 'cold_chain_label',
     name: '冷鏈運輸標籤',
     description: 'TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL',
-    collectible: true,
+    collectible: false,
   },
   'id_card': {
     id: 'id_card',
@@ -147,6 +176,11 @@ export const scenes: Record<string, Scene> = {
         coords: [0.055, 0.5825, 0.145, 0.7175],
         description: '床',
         hint: '床單被折得很平整。',
+      },
+      {
+        id: 'bed_corner_cache',
+        shape: 'rect',
+        coords: [0.0, 0.865, 0.092, 0.985],
       },
       {
         id: 'bed_tag_spot',
@@ -209,7 +243,11 @@ export const scenes: Record<string, Scene> = {
       items.pulse_clip,
       items.bed_tag,
       items.yoga_mat,
+      items.rusty_hairpin,
       items.bloody_key,
+      items.mirror_hint_card,
+      items.dog_tags,
+      items.military_dossier,
     ],
     sceneCard: {
       title: '甦醒',
@@ -265,6 +303,7 @@ export const scenes: Record<string, Scene> = {
         ],
         effects: [
           { type: 'addItem', itemId: 'yoga_mat' },
+          { type: 'addItem', itemId: 'rusty_hairpin' },
           { type: 'setFlag', flag: 'has_hairpin', value: true },
           {
             type: 'showDialog',
@@ -276,7 +315,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '你把墊子攤開，粉紅色像某種過於樂觀的謊。捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
+              text: '獲得：生鏽髮夾\n\n你把墊子攤開，粉紅色像某種過於樂觀的謊。捲起來的中心硬得不自然——你摸到金屬，冰冷、帶著時間的腥味。那是一根生鏽的髮夾，藏在粉紅色的偽裝裡。\n\n粉紅不是溫柔，是最後一點不肯熄滅的火。',
               type: 'item',
             },
           },
@@ -342,6 +381,30 @@ export const scenes: Record<string, Scene> = {
             },
           },
           { type: 'setFlag', flag: 'uv_revealed', value: true },
+        ],
+        oneTime: true,
+      },
+      {
+        id: 'corner_cache_loot',
+        name: '左下角藏匿（軍牌／履歷）',
+        description: '持沾血小鑰匙與 801 紙卡後，於此取得軍牌與履歷。',
+        requirements: [
+          { type: 'hasInteracted', hotspotId: 'bed_corner_cache' },
+          { type: 'hasItem', itemId: 'bloody_key' },
+          { type: 'hasItem', itemId: 'mirror_hint_card' },
+          { type: 'custom', customCheck: (state) => state.flags.bed_cache_looted !== true },
+        ],
+        effects: [
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '你俯身，把金屬抵進膠帶與床底板的縫。刮開的聲音很細，像有人在隔壁磨牙，但你沒停。\n\n縫裡掉出兩樣東西：敲得凹痕累累的軍牌，和一張被摺爛的履歷——像有人急著把「你」從檔案裡抽出來。',
+              type: 'narrator',
+            },
+          },
+          { type: 'addItem', itemId: 'dog_tags' },
+          { type: 'addItem', itemId: 'military_dossier' },
+          { type: 'setFlag', flag: 'bed_cache_looted', value: true },
         ],
         oneTime: true,
       },
@@ -434,7 +497,7 @@ export const scenes: Record<string, Scene> = {
         hint: '名牌上只剩職位：實習生',
       },
     ],
-    items: [items.note],
+    items: [items.note, items.mirror_hint_card],
     sceneCard: {
       title: '走廊',
       lines: ['冷白被拉長成傷口。', '鏡子很多，完整的那個卻不在這裡。'],
@@ -471,14 +534,14 @@ export const scenes: Record<string, Scene> = {
           { type: 'hasInteracted', hotspotId: 'duty_schedule' },
         ],
         effects: [
-          { type: 'addItem', itemId: 'note' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：值班表背面的便條\n\n用急促筆跡寫著：\n「主任只簽同意書，不親手執行。」',
-              type: 'item',
+              text: '你翻轉值班表，背面的便條露了出來。\n\n用急促筆跡寫著：\n「主任只簽同意書，不親手執行。」',
+              type: 'narrator',
             },
           },
+          { type: 'setFlag', flag: 'duty_note_read', value: true },
         ],
         oneTime: true,
       },
@@ -487,7 +550,7 @@ export const scenes: Record<string, Scene> = {
         name: '閱讀便條',
         description: '你再次查看便條內容。',
         requirements: [
-          { type: 'hasItem', itemId: 'note' },
+          { type: 'hasFlag', flag: 'duty_note_read', value: true },
         ],
         effects: [
           {
@@ -551,6 +614,7 @@ export const scenes: Record<string, Scene> = {
         hint: '鏡裡的字比牆上多一層距離；距離一換，數字就換臉。',
         onSolve: [
           { type: 'setFlag', flag: 'mirror_solved', value: true },
+          { type: 'addItem', itemId: 'mirror_hint_card' },
           {
             type: 'showDialog',
             dialog: {
@@ -558,6 +622,14 @@ export const scenes: Record<string, Scene> = {
               type: 'narrator',
             },
           },
+          {
+            type: 'showDialog',
+            dialog: {
+              text: '有什麼從鏡框與牆的縫裡滑下來，啪一聲落在地——一張硬紙卡，角還帶著粉白的牆灰。',
+              type: 'narrator',
+            },
+          },
+          { type: 'setFlag', flag: 'mirror_hint_received', value: true },
         ],
       },
       {
@@ -721,12 +793,11 @@ export const scenes: Record<string, Scene> = {
           { type: 'hasInteracted', hotspotId: 'pillow' },
         ],
         effects: [
-          { type: 'addItem', itemId: 'diary' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：日記本\n\n你翻開時，紙張乾燥得像被烘過。\n文字卻像潮濕：\n「那個粉紅色的墊子是她唯一的堅持，她每天在 701 瘋狂訓練，她想逃出去。」\n\n你讀到「她」的時候，心臟會漏拍：你明明就是「我」。為什麼有人用第三人稱寫你？\n有人在觀察你，還替你寫傳記。',
-              type: 'item',
+              text: '你在枕頭下摸到一本日記。\n\n你翻開時，紙張乾燥得像被烘過。\n文字卻像潮濕：\n「那個粉紅色的墊子是她唯一的堅持，她每天在 701 瘋狂訓練，她想逃出去。」\n\n你讀到「她」的時候，心臟會漏拍：你明明就是「我」。為什麼有人用第三人稱寫你？\n有人在觀察你，還替你寫傳記。',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'diary_read', value: true },
@@ -738,7 +809,7 @@ export const scenes: Record<string, Scene> = {
         name: '閱讀日記',
         description: '你再次翻開日記本。',
         requirements: [
-          { type: 'hasItem', itemId: 'diary' },
+          { type: 'hasFlag', flag: 'diary_read', value: true },
         ],
         effects: [
           {
@@ -759,12 +830,11 @@ export const scenes: Record<string, Scene> = {
           { type: 'hasInteracted', hotspotId: 'bedside_table' },
         ],
         effects: [
-          { type: 'addItem', itemId: 'consent_form' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：撕裂的同意書一角\n\n你從沒同意任何事，但他們的文件總會替你點頭。',
-              type: 'item',
+              text: '你從床頭櫃裡抽出撕裂的同意書一角。\n\n你從沒同意任何事，但他們的文件總會替你點頭。',
+              type: 'narrator',
             },
           },
           { type: 'setFlag', flag: 'consent_form_found', value: true },
@@ -776,7 +846,7 @@ export const scenes: Record<string, Scene> = {
         name: '仔細查看同意書',
         description: '你翻轉同意書，查看背面。',
         requirements: [
-          { type: 'hasItem', itemId: 'consent_form' },
+          { type: 'hasFlag', flag: 'consent_form_found', value: true },
           { type: 'hasFlag', flag: 'diary_read', value: true },
         ],
         effects: [
@@ -968,7 +1038,6 @@ export const scenes: Record<string, Scene> = {
           { type: 'hasItem', itemId: 'rust_remover' },
         ],
         effects: [
-          { type: 'addItem', itemId: 'ceramic_shard' },
           {
             type: 'showDialog',
             dialog: {
@@ -979,7 +1048,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: '陶瓷破片邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。\n\n你仔細觀察破片邊緣，發現刻著細小的字：**R=REINFORCED, T=TEMPORARY**',
+              text: '箱蓋掀起，裡面躺著一塊陶瓷破片——邊緣白得像牙。你突然想到：這棟樓最不缺的，可能就是「白」。\n\n像潔白的凶器。\n\n你仔細觀察破片邊緣，發現刻著細小的字：**R=REINFORCED, T=TEMPORARY**',
               type: 'narrator',
             },
           },
@@ -1075,7 +1144,7 @@ export const scenes: Record<string, Scene> = {
         solution: ['fixed_point_3', 'fixed_point_6', 'fixed_point_7'],
         requirements: [
           { type: 'hasItem', itemId: 'blank_nameplate' },
-          { type: 'hasItem', itemId: 'ceramic_shard' },
+          { type: 'hasFlag', flag: 'toolbox_opened', value: true },
           { type: 'hasItem', itemId: 'rust_remover' },
         ],
         options: [
@@ -1245,15 +1314,14 @@ export const scenes: Record<string, Scene> = {
         description: '查看運輸標籤。',
         requirements: [
           { type: 'hasInteracted', hotspotId: 'cold_label_spot' },
-          { type: 'custom', customCheck: (state) => !state.inventory.includes('cold_chain_label') },
+          { type: 'custom', customCheck: (state) => state.flags.label_read !== true },
         ],
         effects: [
-          { type: 'addItem', itemId: 'cold_chain_label' },
           {
             type: 'showDialog',
             dialog: {
-              text: '獲得：冷鏈運輸標籤\n\n**「TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL」**',
-              type: 'item',
+              text: '標籤貼在箱側，字體冷得像印表機吐出來的：**「TEMP: 2–8°C / DEST: 研究所 / CONTENT: VITAL」**',
+              type: 'narrator',
             },
           },
           {

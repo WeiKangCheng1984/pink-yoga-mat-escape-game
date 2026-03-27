@@ -1673,21 +1673,24 @@ HANDLE WITH CARE。他們在乎的是貨況，不是你。
 | 一次性指尖脈搏夾 | `pulse_clip` | ✓ | ✓ | ch1_sc1 |
 | 床腳掛牌：701-07 | `bed_tag` | ✗ | ✗ | ch1_sc1 |
 | 粉紅瑜珈墊 | `yoga_mat` | ✓ | ✗ | ch1_sc1 |
-| 生鏽髮夾 | `rusty_hairpin` | ✓ | ✗ | ch1_sc1 |
 | 沾血小鑰匙 | `bloody_key` | ✓ | ✗ | ch1_sc1 |
 | 鏡片碎角（舊版） | `mirror_shard` | — | — | 遷移為 `has_mirror_shard` |
-| 值班表背面的便條 | `note` | ✓ | ✗ | ch1_sc2 |
+| 值班表背面的便條 | `note` | ✗ | ✗ | ch1_sc2；純敘事，旗標 `duty_note_read` |
+| 生鏽髮夾 | `rusty_hairpin` | ✓ | ✗ | ch1_sc1（瑜珈墊取得） |
+| 801 紙卡 | `mirror_hint_card` | ✓ | ✓ | ch1_sc2 鏡謎 `801` 通關發放 |
+| 軍牌 | `dog_tags` | ✓ | ✓ | ch1_sc1 床底支線（需 `mirror_solved` + `bloody_key`） |
+| 軍事履歷 | `military_dossier` | ✓ | ✓ | 同上 |
 | 血跡數字：801（舊版） | `blood_number` | — | — | 已不發放；遷移見引擎 |
 | 錄音筆 | `recorder` | ✓ | ✓ | ch1_sc3 |
-| 撕裂的同意書一角 | `consent_form` | ✓ | ✗ | ch1_sc3 |
-| 日記本 | `diary` | ✓ | ✓ | ch1_sc3 |
+| 撕裂的同意書一角 | `consent_form` | ✗ | ✗ | ch1_sc3；純敘事，旗標 `consent_form_found` |
+| 日記本 | `diary` | ✗ | ✗ | ch1_sc3；純敘事，旗標 `diary_read` |
 | 陽台落地窗手把 | `door_handle` | ✓ | ✗ | ch1_sc3 |
 | 實驗終止通知書（舊版） | `termination_notice` | — | — | 遷移為旗標；`gameData` 未 addItem |
 | 醫療束縛帶上的病患名牌 | `blank_nameplate` | ✓ | ✗ | ch1_sc4 |
 | 裂開的止痛貼片盒 | `pain_patch` | ✓ | ✓ | ch1_sc4 |
 | 除鏽劑 | `rust_remover` | ✓ | ✗ | ch1_sc4 |
-| 陶瓷破片 | `ceramic_shard` | ✓ | ✗ | ch1_sc4 |
-| 冷鏈運輸標籤 | `cold_chain_label` | ✓ | ✗ | ch1_sc5 |
+| 陶瓷破片 | `ceramic_shard` | ✗ | ✗ | ch1_sc4；純敘事，旗標 `toolbox_opened` |
+| 冷鏈運輸標籤 | `cold_chain_label` | ✗ | ✗ | ch1_sc5；純敘事，旗標 `label_read` |
 | 破裂的識別手環 | `runner_bracelet` | ✓ | ✗ | ch1_sc5 |
 | 身份證 | `id_card` | ✓ | ✓ | ch1_sc5 |
 
@@ -1700,6 +1703,10 @@ HANDLE WITH CARE。他們在乎的是貨況，不是你。
 | `uv_light_on` | ch1_sc1 | UV 燈已開啟 |
 | `uv_revealed` | ch1_sc1 | UV 數據已揭示 |
 | `door_701_open` | ch1_sc1 | 701 門已打開 |
+| `bed_cache_looted` | ch1_sc1 | 床底藏匿已取（軍牌＋履歷） |
+| `mirror_hint_received` | ch1_sc2 | 鏡謎通關後已取得 801 紙卡敘事 |
+| `mirror_hint_card_studied` | 任意 | 紙卡首次詳讀（背包點擊） |
+| `duty_note_read` | ch1_sc2 | 已讀值班表背面便條 |
 | `has_mirror_shard` | ch1_sc2 | 已取得鏡片（敘事旗標） |
 | `beds_labels_revealed` | ch1_sc2 | 病床標籤已揭示 |
 | `beds_arranged` | ch1_sc2 | 病床已排列 |
@@ -1731,7 +1738,7 @@ HANDLE WITH CARE。他們在乎的是貨況，不是你。
 | 鏡子反射密碼 | `mirror_password` | `input` | `801` | ch1_sc2 |
 | 病床排列 | `bed_arrangement` | `arrangement` | `['主任', '主治', '住院', '護理師', '實習生']` | ch1_sc2 |
 | 打開落地窗 | — | — | — | **無** `puzzle`；`play` 頁：`door_handle` + 確認 |
-| 垂降 | `descend` | `visual_selection` | `['fixed_point_3','fixed_point_6','fixed_point_7']` | ch1_sc4 |
+| 垂降 | `descend` | `visual_selection` | `['fixed_point_3','fixed_point_6','fixed_point_7']` | ch1_sc4；需求含 `toolbox_opened` + 名牌 + 除鏽劑 |
 | 拼箱排序 | `box_arrangement` | `arrangement` | `['心', '肺', '肝', '腎']` | ch1_sc5 |
 | 最終出口 | `final_exit` | `combination_lock` | `24120` | ch1_sc5 |
 
