@@ -329,7 +329,7 @@ export const scenes: Record<string, Scene> = {
       {
         id: 'use_uv_light',
         name: '使用 UV 燈',
-        description: 'UV 光照出牆上的運動數據。',
+        description: 'UV 光照出牆上斑駁的紀錄。',
         requirements: [
           { type: 'hasFlag', flag: 'uv_light_on', value: true },
         ],
@@ -337,7 +337,7 @@ export const scenes: Record<string, Scene> = {
           {
             type: 'showDialog',
             dialog: {
-              text: 'UV 光像一把很小的審判，照出牆上兩行運動數據：\n\n深蹲: 120kg\n臥推: 80kg\n\n你突然明白：有人不是在治療你，是在訓練你。\n\n醫院把你當健身房，健身房把你當屠宰場。\n\n這些數字不是記錄，是標價。',
+              text: 'UV 光像一把很小的審判，掠過牆面時字跡斷斷續續：日期、氣溫、濕度，還有一串串公斤數——像誰的私人物品被登記成報表。\n\n你突然明白：有人不是在治療你，是在訓練你。\n\n醫院把你當健身房，健身房把你當屠宰場。\n\n這些數字不是記錄，是標價。',
               type: 'narrator',
             },
           },
@@ -351,7 +351,7 @@ export const scenes: Record<string, Scene> = {
         id: 'door_code',
         type: 'combination_lock',
         solution: '12080',
-        hint: '牆上的數字在呼吸，像在替你報價。',
+        hint: '人生的輝煌',
         onSolve: [
           { type: 'setFlag', flag: 'door_701_open', value: true },
           {

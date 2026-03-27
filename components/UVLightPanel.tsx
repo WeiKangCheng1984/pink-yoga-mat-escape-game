@@ -8,7 +8,24 @@ interface UVLightPanelProps {
   onReveal?: () => void;
 }
 
-const SPOTLIGHT_RADIUS = 132;
+/** 光斑半徑：略放大方便多行掃讀，仍須移動才看全 */
+const SPOTLIGHT_RADIUS = 86;
+
+/** 牆面顯影：最高紀錄與日期、氣溫等雜訊混排，需自行辨識 */
+const UV_WALL_LINES = [
+  '701 體能備註 · 殘影',
+  '────────',
+  '紀錄日 2024/03/27　外氣 18°C',
+  '病房 22.5°C　走廊濕度 63%',
+  '────────',
+  '深蹲 最高 120kg　胸推 最高 80kg',
+  '暖身 空槓 20kg　側平舉 12kg × 12',
+  '────────',
+  '心率 164　血氧 98%　體溫 36.4',
+  '────────',
+  '維護 2019-11-04　換氣 3 次/h',
+  '備註：待覆核',
+] as const;
 
 export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
   const [isOn, setIsOn] = useState(false);
@@ -16,18 +33,19 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
   const wallRef = useRef<HTMLDivElement>(null);
   const [beam, setBeam] = useState({ x: 0, y: 0 });
 
-  const centerBeam = useCallback(() => {
+  /** 光斑收到牆角暗處，避免一進場就照在字上；游標離開牆面時也回到角落而非正中央 */
+  const obscureCornerBeam = useCallback(() => {
     const el = wallRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setBeam({ x: r.width / 2, y: r.height / 2 });
+    setBeam({ x: r.width * 0.12, y: r.height * 0.18 });
   }, []);
 
   useLayoutEffect(() => {
     if (isOn) {
-      centerBeam();
+      obscureCornerBeam();
     }
-  }, [isOn, centerBeam]);
+  }, [isOn, obscureCornerBeam]);
 
   const updateFromClient = useCallback((clientX: number, clientY: number) => {
     const el = wallRef.current;
@@ -61,11 +79,11 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
   };
 
   const onWallPointerLeave = () => {
-    centerBeam();
+    obscureCornerBeam();
   };
 
   const onWallPointerCancel = () => {
-    centerBeam();
+    obscureCornerBeam();
   };
 
   const toggleUV = () => {
@@ -112,10 +130,7 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
         </div>
 
         <div className="mb-5 p-3 rounded-lg bg-dark-surface/60 border border-dark-border/80">
-          <p className="text-sm text-gray-400 leading-relaxed">
-            沒有電話，只有 UV 燈。開燈後在暗牆上<strong className="text-violet-400/90 font-normal">移動光斑</strong>
-            ，螢光字才會浮出。
-          </p>
+          <p className="text-sm text-gray-400 leading-relaxed">沒有電話，只有 UV 燈。</p>
         </div>
 
         {/* UV 模擬牆面 */}
@@ -127,12 +142,12 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
           >
             {!isOn ? (
               <div className="bg-dark-bg py-14 px-6 text-center">
-                <p className="text-gray-500 text-sm">先開啟 UV，牆面會變成可掃描的暗場。</p>
+                <p className="text-gray-500 text-sm">……</p>
               </div>
             ) : (
               <div className="relative">
-                <p className="text-center text-[11px] text-violet-400/70 tracking-wider py-2 bg-black/40 border-b border-violet-900/30">
-                  移動游標／手指掃描牆面
+                <p className="text-center text-[10px] text-violet-400/60 tracking-wide py-2 px-2 bg-black/40 border-b border-violet-900/30 leading-snug">
+                  看不清楚...
                 </p>
 
                 <div
@@ -143,7 +158,7 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
                   onPointerUp={onWallPointerUp}
                   onPointerLeave={onWallPointerLeave}
                   onPointerCancel={onWallPointerCancel}
-                  className="relative h-[min(280px,55vmin)] w-full cursor-crosshair touch-none bg-[#050508] select-none"
+                  className="relative h-[min(400px,62vmin)] w-full cursor-crosshair touch-none bg-[#050508] select-none"
                   style={{
                     backgroundImage: `
                       radial-gradient(ellipse 120% 80% at 50% 0%, rgba(30,27,60,0.45) 0%, transparent 55%),
@@ -159,79 +174,69 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
                     }}
                   />
 
-                  {/* 未照亮：幾乎看不見的字 */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 p-6 text-center">
-                    <p className="text-[10px] uppercase tracking-[0.35em] text-gray-800">wall trace</p>
-                    <div className="space-y-3 font-mono text-xl md:text-2xl text-[#0d0d12]">
-                      <div>深蹲: 120kg</div>
-                      <div>臥推: 80kg</div>
-                    </div>
-                  </div>
-
-                  {/* 螢光層：僅在光斑內完整顯示（類似 UV 反應漆） */}
+                  {/* 未照亮：與牆同色，僅極微反差（肉眼幾乎無字） */}
                   <div
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-5 p-6 text-center pointer-events-none"
-                    style={{ clipPath: clipCircle }}
+                    className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 text-left opacity-[0.045] w-full"
+                    style={{ color: '#050508' }}
                   >
-                    <p
-                      className="text-[10px] uppercase tracking-[0.35em] text-emerald-400/90"
-                      style={{
-                        textShadow:
-                          '0 0 10px rgba(52,211,153,0.9), 0 0 22px rgba(34,197,94,0.5)',
-                      }}
-                    >
-                      wall trace
-                    </p>
-                    <div className="space-y-3 font-mono text-xl md:text-2xl font-bold text-emerald-300">
-                      <div
-                        style={{
-                          textShadow:
-                            '0 0 12px rgba(110,231,183,0.95), 0 0 28px rgba(52,211,153,0.45), 0 0 2px rgba(255,255,255,0.3)',
-                        }}
-                      >
-                        深蹲: 120kg
-                      </div>
-                      <div
-                        style={{
-                          textShadow:
-                            '0 0 12px rgba(110,231,183,0.95), 0 0 28px rgba(52,211,153,0.45), 0 0 2px rgba(255,255,255,0.3)',
-                        }}
-                      >
-                        臥推: 80kg
-                      </div>
+                    <div className="w-full max-w-[min(320px,92%)] mx-auto font-mono text-[8px] md:text-[9px] font-light leading-relaxed space-y-0.5">
+                      {UV_WALL_LINES.map((line, i) => (
+                        <div key={`uv-dim-${i}`}>{line}</div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* UV 紫光斑 + 青邊（混合光） */}
+                  {/* UV 紫光：僅限光斑圓內，不洗亮整面牆 */}
                   <div
                     className="uv-lamp-glow pointer-events-none absolute inset-0 mix-blend-screen"
                     style={{
+                      clipPath: clipCircle,
                       background: `
                         radial-gradient(
-                          circle ${SPOTLIGHT_RADIUS * 0.55}px at ${beam.x}px ${beam.y}px,
-                          rgba(196, 181, 253, 0.5) 0%,
-                          rgba(139, 92, 246, 0.22) 45%,
+                          circle ${SPOTLIGHT_RADIUS * 0.65}px at ${beam.x}px ${beam.y}px,
+                          rgba(196, 181, 253, 0.42) 0%,
+                          rgba(139, 92, 246, 0.14) 48%,
                           transparent 72%
                         ),
                         radial-gradient(
-                          circle ${SPOTLIGHT_RADIUS * 1.05}px at ${beam.x}px ${beam.y}px,
-                          rgba(34, 211, 238, 0.12) 0%,
-                          rgba(167, 139, 250, 0.08) 40%,
-                          transparent 68%
+                          circle ${SPOTLIGHT_RADIUS * 1.08}px at ${beam.x}px ${beam.y}px,
+                          rgba(34, 211, 238, 0.09) 0%,
+                          rgba(167, 139, 250, 0.05) 42%,
+                          transparent 65%
                         )
                       `,
                     }}
                   />
 
+                  {/* 螢光層：僅光斑內 */}
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center px-4 py-5 text-left pointer-events-none w-full"
+                    style={{ clipPath: clipCircle }}
+                  >
+                    <div className="w-full max-w-[min(320px,92%)] mx-auto font-mono text-[8px] md:text-[9px] text-emerald-200/95 leading-relaxed space-y-0.5 font-normal">
+                      {UV_WALL_LINES.map((line, i) => (
+                        <div
+                          key={`uv-glow-${i}`}
+                          style={{
+                            textShadow:
+                              '0 0 6px rgba(110,231,183,0.75), 0 0 14px rgba(52,211,153,0.32)',
+                          }}
+                        >
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* 光斑邊緣細環 */}
                   <div
-                    className="pointer-events-none absolute rounded-full border border-white/20 opacity-40"
+                    className="pointer-events-none absolute rounded-full border border-violet-200/25 opacity-50"
                     style={{
                       width: SPOTLIGHT_RADIUS * 2,
                       height: SPOTLIGHT_RADIUS * 2,
                       left: beam.x - SPOTLIGHT_RADIUS,
                       top: beam.y - SPOTLIGHT_RADIUS,
-                      boxShadow: 'inset 0 0 20px rgba(167,139,250,0.25)',
+                      boxShadow: 'inset 0 0 16px rgba(167,139,250,0.2)',
                     }}
                   />
 
@@ -245,14 +250,7 @@ export default function UVLightPanel({ onClose, onReveal }: UVLightPanelProps) {
                 </div>
 
                 {hasRevealed && (
-                  <div className="px-4 py-3 bg-black/50 border-t border-violet-900/25 text-center space-y-2">
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                      你突然明白：有人不是在治療你，是在訓練你。
-                    </p>
-                    <p className="text-sm text-violet-300/90 font-medium">
-                      醫院把你當健身房，健身房把你當屠宰場。
-                    </p>
-                  </div>
+                  <div className="h-2 bg-black/40 border-t border-violet-900/20" aria-hidden />
                 )}
               </div>
             )}
