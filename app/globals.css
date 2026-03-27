@@ -54,5 +54,32 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
+
+  /* UV 手電筒：光斑微閃爍（日光燈感） */
+  @keyframes uv-lamp-flicker {
+    0%,
+    100% {
+      opacity: 0.92;
+    }
+    8% {
+      opacity: 0.78;
+    }
+    10% {
+      opacity: 0.95;
+    }
+    25% {
+      opacity: 0.88;
+    }
+    45% {
+      opacity: 0.97;
+    }
+    60% {
+      opacity: 0.85;
+    }
+  }
+
+  .uv-lamp-glow {
+    animation: uv-lamp-flicker 2.8s ease-in-out infinite;
+  }
 }
 
